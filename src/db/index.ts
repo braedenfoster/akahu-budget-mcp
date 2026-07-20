@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
@@ -19,6 +20,12 @@ const migrationsFolder = path.resolve(
  * tests. Foreign keys are enforced and WAL is enabled for the on-disk case.
  */
 export function openDb(dbPath: string): Db {
+  // Ensure the parent directory exists so a configured path like
+  // ./data/budget.sqlite works on a fresh checkout (better-sqlite3 will not
+  // create missing directories).
+  if (dbPath !== ":memory:") {
+    fs.mkdirSync(path.dirname(path.resolve(dbPath)), { recursive: true });
+  }
   const sqlite = new Database(dbPath);
   sqlite.pragma("foreign_keys = ON");
   if (dbPath !== ":memory:") {
