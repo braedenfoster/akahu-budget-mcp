@@ -46,6 +46,13 @@ function categoryIdByName(ctx: AppContext, name: string): number {
     .get()!.id;
 }
 
+function createCategory(ctx: AppContext, name: string): number {
+  const created = invokeTool(ctx, manageCategoriesTool, { action: "create", name }) as {
+    id: number;
+  };
+  return created.id;
+}
+
 describe("ticket 04 — categorization (Seam 1)", () => {
   it("resolves via group rules seeded from personal_finance; unmatched -> Uncategorized", async () => {
     const ctx = await setup([
@@ -68,11 +75,11 @@ describe("ticket 04 — categorization (Seam 1)", () => {
     ]);
     expect(categoryNameOf(ctx, "t1")).toBe("Groceries");
 
-    const kids = invokeTool(ctx, manageCategoriesTool, { action: "create", name: "Kids" });
+    const kidsId = createCategory(ctx, "Kids");
     const result = invokeTool(ctx, setCategoryRuleTool, {
       match_type: "merchant",
       match_value: "Countdown",
-      category_id: kids.id,
+      category_id: kidsId,
       backfill: true,
     });
     expect(result.reclassified).toBe(1);
@@ -109,19 +116,19 @@ describe("ticket 04 — categorization (Seam 1)", () => {
     const ctx = await setup([
       sampleTransaction({ id: "t1", amount: -25, group: "Groceries", merchant: "Countdown" }),
     ]);
-    const kids = invokeTool(ctx, manageCategoriesTool, { action: "create", name: "Kids" });
+    const kidsId = createCategory(ctx, "Kids");
     invokeTool(ctx, categorizeTransactionTool, {
       transaction_id: "t1",
-      category_id: kids.id,
+      category_id: kidsId,
     });
     expect(categoryNameOf(ctx, "t1")).toBe("Kids");
 
     // A group rule change + backfill must NOT clobber the manual override.
-    const dining = invokeTool(ctx, manageCategoriesTool, { action: "create", name: "Dining" });
+    const diningId = createCategory(ctx, "Dining");
     invokeTool(ctx, setCategoryRuleTool, {
       match_type: "akahu_group",
       match_value: "Groceries",
-      category_id: dining.id,
+      category_id: diningId,
       backfill: true,
     });
     expect(categoryNameOf(ctx, "t1")).toBe("Kids");

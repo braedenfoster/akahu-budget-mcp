@@ -205,3 +205,38 @@ export const mappingRules = sqliteTable(
   },
   (t) => ({ matchUnique: unique().on(t.matchType, t.matchValue) }),
 );
+
+// --- Ticket 05: budgets + envelopes ---------------------------------------
+
+/**
+ * A Budget is the set of Envelopes for the Household in a Period (ADR-0004).
+ * Keyed on the Period key ("YYYY-MM"); the explicit start/end range is stored so
+ * a later `budget_month_start_day` change never rewrites history.
+ */
+export const budgets = sqliteTable("budgets", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  periodKey: text("period_key").notNull().unique(),
+  periodStart: text("period_start").notNull(), // YYYY-MM-DD inclusive
+  periodEnd: text("period_end").notNull(), // YYYY-MM-DD inclusive
+  currency: text("currency").notNull(),
+  /** Household expected income for this Period; null until set. */
+  expectedIncomeCents: integer("expected_income_cents"),
+  createdAt: text("created_at").notNull(),
+});
+
+/** A Budget Category's allocation for a Period, in integer cents. */
+export const envelopes = sqliteTable(
+  "envelopes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    budgetId: integer("budget_id")
+      .notNull()
+      .references(() => budgets.id),
+    budgetCategoryId: integer("budget_category_id")
+      .notNull()
+      .references(() => budgetCategories.id),
+    allocatedCents: integer("allocated_cents").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => ({ perCategory: unique().on(t.budgetId, t.budgetCategoryId) }),
+);

@@ -13,6 +13,13 @@ import {
   manageCategoriesTool,
   setCategoryRuleTool,
 } from "./categories.js";
+import {
+  createBudgetForPeriodTool,
+  getBudgetTool,
+  reallocateTool,
+  setAllocationTool,
+  setExpectedIncomeTool,
+} from "./budget.js";
 
 /**
  * Every MCP tool the server exposes. Grows one ticket at a time; the server and
@@ -30,6 +37,11 @@ export const allTools: AnyTool[] = [
   manageCategoriesTool,
   categorizeTransactionTool,
   setCategoryRuleTool,
+  getBudgetTool,
+  createBudgetForPeriodTool,
+  setAllocationTool,
+  setExpectedIncomeTool,
+  reallocateTool,
 ];
 
 export function toolByName(name: string): AnyTool | undefined {
