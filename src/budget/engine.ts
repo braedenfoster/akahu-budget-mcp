@@ -6,7 +6,6 @@ import {
   SETTING_HOME_CURRENCY,
 } from "../context.js";
 import { budgetCategories, budgets, envelopes, transactions } from "../db/schema.js";
-import { ensureUncategorized } from "../categorization/engine.js";
 import { periodForDate, periodFromKey, type Period } from "../period.js";
 
 export function homeCurrency(ctx: AppContext): string {
@@ -149,7 +148,8 @@ export interface BudgetSnapshot {
  * the underlying Transactions.
  */
 export function computeBudget(ctx: AppContext, period: Period): BudgetSnapshot {
-  ensureUncategorized(ctx);
+  // Pure read: no seeding here, so get_budget and evaluate_purchase never
+  // mutate state (ticket 06). Uncategorized is seeded during sync instead.
   const budget = findBudget(ctx, period.key);
   const spend = spendByCategory(ctx, period);
 

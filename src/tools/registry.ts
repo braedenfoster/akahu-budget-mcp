@@ -20,6 +20,7 @@ import {
   setAllocationTool,
   setExpectedIncomeTool,
 } from "./budget.js";
+import { evaluatePurchaseTool } from "./evaluate.js";
 
 /**
  * Every MCP tool the server exposes. Grows one ticket at a time; the server and
@@ -42,6 +43,7 @@ export const allTools: AnyTool[] = [
   setAllocationTool,
   setExpectedIncomeTool,
   reallocateTool,
+  evaluatePurchaseTool,
 ];
 
 export function toolByName(name: string): AnyTool | undefined {
