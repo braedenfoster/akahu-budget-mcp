@@ -29,8 +29,20 @@ A single debit or credit on an Account, sourced from Akahu and cached in sqlite.
 _Avoid_: Entry, line item, payment
 
 **Income**:
-Household-level money in for a Period. **Expected income** is a figure the Household sets; **actual income** is the sum of credit Transactions tagged as income in the Period.
+Household-level money in for a Period. **Expected income** is a figure the Household sets; **actual income** is the sum of credit Transactions classified into an Income Stream in the Period.
 _Avoid_: Salary, earnings, revenue
+
+**Income Stream**:
+A household-defined source of Income (e.g. "Salary", "PPL"). A credit Transaction is Income if and only if it is classified into an Income Stream; the classification is driven by Income Rules over the same matcher used for Budget Categories. Income Streams give the per-source breakdown a Household needs to see (e.g. which stream ends when).
+_Avoid_: Income category, income type, income bucket
+
+**Unclassified income**:
+The system Income Stream that positive, non-transfer credits fall into when no Income Rule names them. It keeps actual-income totals whole while flagging credits that still need a real Stream — the counterpart to Uncategorized on the expense side.
+_Avoid_: Other income, misc income
+
+**Income Rule**:
+Data in sqlite routing a merchant, description, Akahu group, or Akahu `type` to an Income Stream — the income-side twin of a Mapping Rule, sharing the same matcher. Lets a credit that Akahu never tags as income (e.g. a partner's pay arriving as a bank transfer) be promoted to an Income Stream.
+_Avoid_: Classifier, rule (bare)
 
 ### Categorization
 
