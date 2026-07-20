@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { transactions } from "../src/db/schema.js";
 import { syncAccounts } from "../src/sync/accounts.js";
 import { syncTransactions } from "../src/sync/transactions.js";
+import { runCategorization } from "../src/categorization/engine.js";
 import {
   listTransactionsTool,
   refreshTool,
@@ -66,7 +67,7 @@ describe("ticket 03 — transaction sync invariants (Seam 2)", () => {
     expect(ctx.db.select().from(transactions).all()).toHaveLength(3);
   });
 
-  it("tags non-transfer credits as income, debits as not", async () => {
+  it("sync no longer guesses income; the classification pass sets is_income (ADR-0009)", async () => {
     const ctx = testContext();
     const salary = sampleTransaction({ id: "t_pay", amount: 2500, description: "Payroll" });
     const spend = sampleTransaction({ id: "t_buy", amount: -50 });
@@ -74,10 +75,20 @@ describe("ticket 03 — transaction sync invariants (Seam 2)", () => {
     const { connectionId, client } = await seedAccountAnd(ctx, [salary, spend, xfer]);
     await syncTransactions(ctx, [{ connectionId, client }]);
 
-    const rows = Object.fromEntries(
+    // Sync itself sets nothing: is_income is derived, not heuristic.
+    const afterSync = Object.fromEntries(
       ctx.db.select().from(transactions).all().map((r) => [r.akahuId, r.isIncome]),
     );
-    expect(rows).toEqual({ t_pay: true, t_buy: false, t_xfer: false });
+    expect(afterSync).toEqual({ t_pay: false, t_buy: false, t_xfer: false });
+
+    // The classification pass routes the positive non-transfer credit into the
+    // Unclassified income fallback (preserving the old total); the transfer and
+    // the debit are not Income.
+    runCategorization(ctx);
+    const afterClassify = Object.fromEntries(
+      ctx.db.select().from(transactions).all().map((r) => [r.akahuId, r.isIncome]),
+    );
+    expect(afterClassify).toEqual({ t_pay: true, t_buy: false, t_xfer: false });
   });
 });
 

@@ -148,8 +148,20 @@ export const transactions = sqliteTable("transactions", {
   akahuCategoryGroup: text("akahu_category_group"),
   type: text("type"),
   pending: integer("pending", { mode: "boolean" }).notNull().default(false),
-  // Whether this credit counts as household Income (ticket 05). Derived on sync.
+  // Whether this credit counts as household Income. Derived (= income_stream_id
+  // IS NOT NULL), set by the classification pass, never the sync heuristic
+  // (ADR-0009).
   isIncome: integer("is_income", { mode: "boolean" }).notNull().default(false),
+  // The Income Stream this credit is classified into (ADR-0009). Null = not
+  // Income. Set by the classification pass alongside is_income.
+  incomeStreamId: integer("income_stream_id").references(
+    (): typeof incomeStreams.id => incomeStreams.id,
+  ),
+  // True when set by a one-off classify_income; protects it from re-derivation
+  // when Income Rules change (mirrors category_override).
+  incomeOverride: integer("income_override", { mode: "boolean" })
+    .notNull()
+    .default(false),
   // Resolved Budget Category (ticket 04). Null until categorization runs.
   budgetCategoryId: integer("budget_category_id").references(
     (): typeof budgetCategories.id => budgetCategories.id,
@@ -200,6 +212,41 @@ export const mappingRules = sqliteTable(
     budgetCategoryId: integer("budget_category_id")
       .notNull()
       .references(() => budgetCategories.id),
+    priority: integer("priority").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => ({ matchUnique: unique().on(t.matchType, t.matchValue) }),
+);
+
+// --- Income Streams + Income Rules (ADR-0009) -----------------------------
+
+/**
+ * Household-defined Income Streams (ADR-0009) — the income-side twin of Budget
+ * Categories. Exactly one is the system `Unclassified income` catch-all
+ * (isSystem = true) so actual-income totals always reconcile.
+ */
+export const incomeStreams = sqliteTable("income_streams", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().unique(),
+  isSystem: integer("is_system", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("created_at").notNull(),
+});
+
+/**
+ * Income Rules route a merchant / description / Akahu group / Akahu `type` to an
+ * Income Stream (ADR-0009). A separate table from `mapping_rules` for clean FKs
+ * and constraints, but run through the same matcher. One rule per
+ * (matchType, matchValue); precedence is defined by the shared matcher.
+ */
+export const incomeRules = sqliteTable(
+  "income_rules",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    matchType: text("match_type").notNull(),
+    matchValue: text("match_value").notNull(),
+    incomeStreamId: integer("income_stream_id")
+      .notNull()
+      .references(() => incomeStreams.id),
     priority: integer("priority").notNull().default(0),
     createdAt: text("created_at").notNull(),
   },

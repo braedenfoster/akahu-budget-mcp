@@ -29,6 +29,14 @@ import {
   planPeriodTool,
   updatePlannedPurchaseTool,
 } from "./planned.js";
+import {
+  classifyIncomeTool,
+  incomeCoverageTool,
+  listIncomeStreamsTool,
+  listUnclassifiedIncomeTool,
+  manageIncomeStreamsTool,
+  setIncomeRuleTool,
+} from "./income.js";
 import { getPeriodSummaryTool } from "./reports.js";
 import { getWorkflowGuideTool } from "./guides.js";
 
@@ -60,6 +68,12 @@ export const allTools: AnyTool[] = [
   markPurchasedTool,
   dropPlannedPurchaseTool,
   planPeriodTool,
+  listIncomeStreamsTool,
+  manageIncomeStreamsTool,
+  setIncomeRuleTool,
+  classifyIncomeTool,
+  listUnclassifiedIncomeTool,
+  incomeCoverageTool,
   getPeriodSummaryTool,
   getWorkflowGuideTool,
 ];

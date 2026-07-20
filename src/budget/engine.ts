@@ -6,6 +6,7 @@ import {
   SETTING_HOME_CURRENCY,
 } from "../context.js";
 import { budgetCategories, budgets, envelopes, transactions } from "../db/schema.js";
+import { incomeByStream, type StreamBreakdown } from "../income/engine.js";
 import { periodForDate, periodFromKey, periodView, type Period } from "../period.js";
 
 export function homeCurrency(ctx: AppContext): string {
@@ -165,7 +166,7 @@ export interface BudgetSnapshot {
   currency: string;
   has_budget: boolean;
   envelopes: EnvelopeView[];
-  income: { expected_cents: number | null; actual_cents: number };
+  income: { expected_cents: number | null; actual_cents: number; by_stream: StreamBreakdown[] };
   totals: { allocated_cents: number; spent_cents: number; remaining_cents: number };
   household_headroom_cents: number;
 }
@@ -236,7 +237,7 @@ export function computeBudget(ctx: AppContext, period: Period): BudgetSnapshot {
     currency: budget?.currency ?? homeCurrency(ctx),
     has_budget: budget !== undefined,
     envelopes: envelopeViews,
-    income: { expected_cents: expected, actual_cents: actual },
+    income: { expected_cents: expected, actual_cents: actual, by_stream: incomeByStream(ctx, period) },
     totals: {
       allocated_cents: totalAllocated,
       spent_cents: totalSpent,

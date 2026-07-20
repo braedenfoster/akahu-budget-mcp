@@ -8,6 +8,7 @@ import {
   incomeNetSql,
   nonIncomeNetSql,
 } from "../budget/engine.js";
+import { incomeByStream, type StreamBreakdown } from "../income/engine.js";
 import { periodView, previousPeriod, type Period } from "../period.js";
 
 /** Total spend (net of non-income credits and transfers) and income, in cents. */
@@ -86,7 +87,12 @@ export interface PeriodSummary {
     spent_cents: number;
     remaining_cents: number;
   }[];
-  income_vs_spend: { income_cents: number; spent_cents: number; net_cents: number };
+  income_vs_spend: {
+    income_cents: number;
+    spent_cents: number;
+    net_cents: number;
+    by_stream: StreamBreakdown[];
+  };
   top_merchants: MerchantSpend[];
   trend: TrendPoint[];
 }
@@ -119,6 +125,7 @@ export function computePeriodSummary(
       income_cents: totals.income_cents,
       spent_cents: totals.spent_cents,
       net_cents: totals.income_cents - totals.spent_cents,
+      by_stream: incomeByStream(ctx, period),
     },
     top_merchants: topMerchants(ctx, period, opts.topMerchantsLimit),
     trend: spendTrend(ctx, period, opts.trendPeriods),

@@ -64,6 +64,8 @@ describe("ticket 08 — get_period_summary (Seam 1)", () => {
       income_cents: 400000,
       spent_cents: 11500, // 8000 + 2000 + 1500
       net_cents: 388500,
+      // The payroll credit falls into the Unclassified income fallback (no rule).
+      by_stream: [{ stream: "Unclassified income", actual_cents: 400000 }],
     });
 
     expect(out.top_merchants).toEqual([

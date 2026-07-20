@@ -30,7 +30,6 @@ interface TxnRow {
   akahuCategoryGroup: string | null;
   type: string | null;
   pending: boolean;
-  isIncome: boolean;
   raw: string;
   updatedAt: string;
 }
@@ -38,6 +37,10 @@ interface TxnRow {
 function toRow(txn: AkahuTransaction, homeCurrency: string, nowIso: string): TxnRow {
   const amountCents = dollarsToCents(txn.amount);
   const type = txn.type ?? null;
+  // `is_income` and `income_stream_id` are NOT set here: Income is decided by
+  // the classification pass (ADR-0009), which runs after every sync. Leaving
+  // them out of the upsert set preserves an existing row's classification until
+  // reclassification re-derives it.
   return {
     akahuId: txn._id,
     accountId: txn._account,
@@ -50,9 +53,6 @@ function toRow(txn: AkahuTransaction, homeCurrency: string, nowIso: string): Txn
     akahuCategoryGroup: txn.category?.groups?.personal_finance?.name ?? null,
     type,
     pending: txn.pending ?? false,
-    // A credit that isn't an internal transfer counts as household Income
-    // (ticket 05, user story 28: captures variable/weekly income directly).
-    isIncome: amountCents > 0 && type !== "TRANSFER",
     raw: JSON.stringify(txn),
     updatedAt: nowIso,
   };

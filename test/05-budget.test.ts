@@ -74,7 +74,12 @@ describe("ticket 05 — budget engine (Seam 1)", () => {
     invokeTool(ctx, setAllocationTool, { period: "2026-07", category_id: groceries, amount_cents: 120000 });
 
     const budget = invokeTool(ctx, getBudgetTool, { period: "2026-07" });
-    expect(budget.income).toEqual({ expected_cents: 500000, actual_cents: 400000 });
+    expect(budget.income).toEqual({
+      expected_cents: 500000,
+      actual_cents: 400000,
+      // The payroll credit falls into the Unclassified income fallback (no rule).
+      by_stream: [{ stream: "Unclassified income", actual_cents: 400000 }],
+    });
     // Headroom = expected income - total allocated = 500000 - 120000.
     expect(budget.household_headroom_cents).toBe(380000);
   });
