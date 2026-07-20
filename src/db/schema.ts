@@ -240,3 +240,22 @@ export const envelopes = sqliteTable(
   },
   (t) => ({ perCategory: unique().on(t.budgetId, t.budgetCategoryId) }),
 );
+
+// --- Ticket 07: planned purchases -----------------------------------------
+
+/**
+ * A Planned Purchase is a persisted intended expense — a list entry, NOT a
+ * reservation against an Envelope (ADR-0004 defers reserving). `targetPeriod`
+ * may name a future Period. Lifecycle via `status`.
+ */
+export const plannedPurchases = sqliteTable("planned_purchases", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  description: text("description").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  targetCategoryId: integer("target_category_id").references(() => budgetCategories.id),
+  targetPeriod: text("target_period").notNull(), // YYYY-MM
+  priority: integer("priority").notNull().default(0),
+  status: text("status").notNull().default("planned"), // planned | purchased | dropped
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
