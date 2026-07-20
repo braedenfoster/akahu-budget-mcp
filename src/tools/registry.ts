@@ -30,6 +30,7 @@ import {
   updatePlannedPurchaseTool,
 } from "./planned.js";
 import { getPeriodSummaryTool } from "./reports.js";
+import { getWorkflowGuideTool } from "./guides.js";
 
 /**
  * Every MCP tool the server exposes. Grows one ticket at a time; the server and
@@ -60,6 +61,7 @@ export const allTools: AnyTool[] = [
   dropPlannedPurchaseTool,
   planPeriodTool,
   getPeriodSummaryTool,
+  getWorkflowGuideTool,
 ];
 
 export function toolByName(name: string): AnyTool | undefined {
