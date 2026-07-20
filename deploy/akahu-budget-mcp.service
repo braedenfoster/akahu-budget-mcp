@@ -1,0 +1,26 @@
+# systemd unit for the Akahu budgeting MCP server on the Raspberry Pi (ADR-0002).
+# Install:
+#   sudo cp deploy/akahu-budget-mcp.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now akahu-budget-mcp
+# Logs: journalctl -u akahu-budget-mcp -f
+
+[Unit]
+Description=Akahu budgeting MCP server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust to the deploy user and checkout path on the Pi.
+User=pi
+WorkingDirectory=/home/pi/akahu-budget-mcp
+EnvironmentFile=/home/pi/akahu-budget-mcp/.env
+ExecStart=/usr/bin/node dist/server.js
+Restart=on-failure
+RestartSec=5
+# Keep the sqlite cache on local disk; back it up out of band.
+StateDirectory=akahu-budget-mcp
+
+[Install]
+WantedBy=multi-user.target
