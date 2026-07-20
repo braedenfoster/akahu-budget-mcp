@@ -214,9 +214,9 @@ export const categorizeTransactionTool = defineTool({
 export const setCategoryRuleTool = defineTool({
   name: "set_category_rule",
   description:
-    "Create/replace a Mapping Rule routing a merchant or Akahu personal_finance group to a Budget Category, optionally backfilling existing Transactions. Audited; refused in read-only mode.",
+    "Create/replace a Mapping Rule routing a Transaction to a Budget Category, optionally backfilling existing Transactions. match_type is one of: merchant (exact), description (substring), akahu_group (exact), txn_type (exact Akahu type, e.g. LOAN). Audited; refused in read-only mode.",
   inputSchema: {
-    match_type: z.enum(["merchant", "akahu_group"]),
+    match_type: z.enum(["merchant", "description", "akahu_group", "txn_type"]),
     match_value: z.string().min(1),
     category_id: z.number().int(),
     priority: z.number().int().default(0),

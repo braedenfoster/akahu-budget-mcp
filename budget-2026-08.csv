@@ -1,0 +1,63 @@
+Budget breakdown,August 2026,Currency: NZD,,
+,,,,
+== ENVELOPE ALLOCATIONS (as set) ==,,,,
+Envelope,Allocated (NZD),Status,,
+Housing,5310.00,Essential (new envelope),,
+Household,995.00,Essential,,
+Food,800.00,Essential,,
+Education,665.00,Essential,,
+Utilities,595.00,Essential,,
+Savings,600.00,Savings (new envelope),,
+Transport,400.00,Essential,,
+Credit Card,400.00,Debt paydown (new envelope),,
+Lifestyle,296.00,Subs + gym + dining,,
+Health,105.00,Essential (swimming),,
+Appearance,84.00,Extra (haircuts + buffer),,
+Professional Services,27.00,Essential,,
+Total allocated,10277.00,,,
+,,,,
+== RECURRING LINE ITEMS BY ENVELOPE ==,,,,
+Envelope,Line item,Est. monthly (NZD),Status,Notes
+Housing,Loan repayments (2x AP to A van den Heever / B L Foster),4730.00,Essential,Avg of May/Jun; type LOAN
+Housing,Auckland Council rates,580.00,Essential,Direct debit ~579.81; irregular cadence
+Household,AIA insurance (2 debits + GoCardless),555.00,Essential,
+Household,IAG insurance,220.00,Essential,
+Household,Tower insurance,185.00,Essential,Two payments/mo
+Household,Southern Cross Pet insurance,33.00,Essential,
+Food,Groceries (PAK'nSAVE / New World / Woolworths),800.00,Essential,Variable
+Education,Childcare - Educational Holdings,665.00,Essential,Standing order ~154.00/week
+Utilities,Power - Ecotricity,400.00,Essential,Provision; lumpy billing (real avg $300-400)
+Utilities,Internet - 2degrees,85.00,Essential,
+Utilities,Mobile - Mighty Mobile,40.00,Essential,
+Utilities,Water - Watercare,70.00,Essential,
+Transport,Fuel + AT top-ups + U-GO charging,400.00,Essential,Variable
+Credit Card,Zero Visa paydown (principal + ~76 interest),400.00,Debt paydown,Balance -7687.23; ~19 months to clear
+Lifestyle,Spotify,28.99,Extra (kept),
+Lifestyle,Disney+,18.99,Extra (kept),
+Lifestyle,Amazon Prime Video,11.19,Extra (kept),
+Lifestyle,Gym - Anytime Fitness (Ezypay),86.45,Extra (ending),Cancelled from 3 Sep 2026; in Aug only
+Lifestyle,Dining out buffer,150.00,Extra,Reined-in vs ~375/mo historical
+Health,Swimming - Dean Greenwood Swim School,105.00,Essential,~24.00/lesson weekly (~4 lessons/mo)
+Appearance,Haircuts + buffer,84.00,Extra,
+Professional Services,Google One,16.99,Essential,
+Professional Services,1Password,9.84,Essential,
+,,,,
+== NOT BUDGETED (superfluous / discretionary) ==,,,,
+Area,Est. monthly (NZD),Notes,,
+Eating out beyond the 150 buffer,225.00,"Historical ~375/mo; trimmed to grow savings",,
+Family outings / entertainment,100.00,"Zoo, cinema, Playcentre (lumpy)",,
+Clothing / beauty (one-off),0.00,"Max Fashions, Gorman, Sephora, Aesop - occasional",,
+,,,,
+== SUMMARY ==,,,,
+Metric,NZD,,,
+Expected income,10277.25,,,
+Total allocated,10277.00,,,
+Headroom,0.25,,,
+of which Savings,600.00,,,
+of which Credit Card paydown,400.00,,,
+,,,,
+== FUTURE NOTES ==,,,,
+Item,Effect,,,
+Gym cancelled from 3 Sep 2026,Frees ~86.45/mo in Lifestyle from Sept budget onward,,,
+Credit card balance -7687.23,At 400/mo ~19 months to clear (interest ~76/mo slows early payoff),,,
+Savings account currently 12052.57,Could clear card in one transfer if preferred (your call; not budgeted),,,

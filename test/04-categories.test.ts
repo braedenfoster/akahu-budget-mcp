@@ -80,6 +80,73 @@ describe("ticket 04 — categorization (Seam 1)", () => {
     expect(out.transactions.map((t) => t.id)).toEqual(["t1"]);
   });
 
+  it("routes by txn_type when merchant/group are absent (e.g. mortgage type=LOAN)", async () => {
+    const ctx = await setup([
+      sampleTransaction({
+        id: "m1",
+        amount: -2350.8,
+        type: "LOAN",
+        description: "AP#25174032 TO A VAN DEN HEEVER, B L FOSTER",
+      }),
+    ]);
+    // No merchant, no group -> starts Uncategorized.
+    expect(categoryNameOf(ctx, "m1")).toBe("Uncategorized");
+
+    const housing = createCategory(ctx, "Housing");
+    invokeTool(ctx, setCategoryRuleTool, {
+      match_type: "txn_type",
+      match_value: "LOAN",
+      category_id: housing,
+      backfill: true,
+    });
+    expect(categoryNameOf(ctx, "m1")).toBe("Housing");
+  });
+
+  it("routes by description substring (case-insensitive)", async () => {
+    const ctx = await setup([
+      sampleTransaction({
+        id: "e1",
+        amount: -154,
+        type: "STANDING ORDER",
+        description: "AP#26066736 TO EDUCATIONAL HOLDINGS LTD",
+      }),
+    ]);
+    const edu = createCategory(ctx, "Education");
+    invokeTool(ctx, setCategoryRuleTool, {
+      match_type: "description",
+      match_value: "educational holdings",
+      category_id: edu,
+      backfill: true,
+    });
+    expect(categoryNameOf(ctx, "e1")).toBe("Education");
+  });
+
+  it("precedence: a merchant rule beats a description rule", async () => {
+    const ctx = await setup([
+      sampleTransaction({
+        id: "x1",
+        amount: -20,
+        merchant: "Countdown",
+        description: "COUNTDOWN EDUCATIONAL SUPPLIES",
+      }),
+    ]);
+    const edu = createCategory(ctx, "Education");
+    const kids = createCategory(ctx, "Kids");
+    invokeTool(ctx, setCategoryRuleTool, {
+      match_type: "description",
+      match_value: "EDUCATIONAL",
+      category_id: edu,
+      backfill: true,
+    });
+    invokeTool(ctx, setCategoryRuleTool, {
+      match_type: "merchant",
+      match_value: "Countdown",
+      category_id: kids,
+      backfill: true,
+    });
+    expect(categoryNameOf(ctx, "x1")).toBe("Kids");
+  });
+
   it("a merchant rule with backfill reclassifies existing history", async () => {
     const ctx = await setup([
       sampleTransaction({ id: "t1", amount: -25, group: "Groceries", merchant: "Countdown" }),
