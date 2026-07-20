@@ -5,6 +5,7 @@ import type { SeededConnection } from "../household.js";
 import { SETTING_LAST_SYNC_AT, putSetting } from "../context.js";
 import { syncAccounts, type AccountSyncJob } from "./accounts.js";
 import { syncTransactions } from "./transactions.js";
+import { runCategorization } from "../categorization/engine.js";
 import type { SyncResult } from "./result.js";
 
 export type { SyncResult } from "./result.js";
@@ -41,6 +42,9 @@ export async function runSync(
 ): Promise<SyncResult> {
   const accountResult = await syncAccounts(ctx, jobs, homeCurrency);
   const txnResult = await syncTransactions(ctx, jobs, homeCurrency);
+  // Resolve every Transaction to a Budget Category, seeding categories/rules
+  // from the Akahu personal_finance groups just ingested (ADR-0007).
+  runCategorization(ctx);
   const stamp = ctx.now().toISOString();
   putSetting(ctx, SETTING_LAST_SYNC_AT, stamp);
   return { accounts: accountResult, transactions: txnResult, data_as_of: stamp };

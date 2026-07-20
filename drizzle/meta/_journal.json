@@ -22,6 +22,13 @@
       "when": 1784515482623,
       "tag": "0002_lucky_expediter",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784515845240,
+      "tag": "0003_cool_karnak",
+      "breakpoints": true
     }
   ]
 }

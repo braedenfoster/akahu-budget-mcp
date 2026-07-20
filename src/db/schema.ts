@@ -150,6 +150,15 @@ export const transactions = sqliteTable("transactions", {
   pending: integer("pending", { mode: "boolean" }).notNull().default(false),
   // Whether this credit counts as household Income (ticket 05). Derived on sync.
   isIncome: integer("is_income", { mode: "boolean" }).notNull().default(false),
+  // Resolved Budget Category (ticket 04). Null until categorization runs.
+  budgetCategoryId: integer("budget_category_id").references(
+    (): typeof budgetCategories.id => budgetCategories.id,
+  ),
+  // True when set by a one-off categorize_transaction; protects it from
+  // re-derivation when Mapping Rules change.
+  categoryOverride: integer("category_override", { mode: "boolean" })
+    .notNull()
+    .default(false),
   raw: text("raw").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -162,3 +171,37 @@ export const syncState = sqliteTable("sync_state", {
   cursor: text("cursor"),
   lastSyncedAt: text("last_synced_at"),
 });
+
+// --- Ticket 04: budget categories + mapping rules -------------------------
+
+/**
+ * Household-defined Budget Categories (ADR-0007). Exactly one is the system
+ * `Uncategorized` catch-all (isSystem = true) so totals always reconcile.
+ */
+export const budgetCategories = sqliteTable("budget_categories", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().unique(),
+  isSystem: integer("is_system", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("created_at").notNull(),
+});
+
+/**
+ * Mapping Rules route a merchant or an Akahu personal_finance group to a Budget
+ * Category (ADR-0007). Data, not code. Seeded from groups, then AI/human
+ * refined. One rule per (matchType, matchValue); merchant rules win over group
+ * rules, then higher priority, then most recent.
+ */
+export const mappingRules = sqliteTable(
+  "mapping_rules",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    matchType: text("match_type").notNull(), // 'merchant' | 'akahu_group'
+    matchValue: text("match_value").notNull(),
+    budgetCategoryId: integer("budget_category_id")
+      .notNull()
+      .references(() => budgetCategories.id),
+    priority: integer("priority").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => ({ matchUnique: unique().on(t.matchType, t.matchValue) }),
+);

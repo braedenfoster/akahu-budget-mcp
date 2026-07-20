@@ -6,6 +6,13 @@ import {
   refreshTool,
   searchTransactionsTool,
 } from "./transactions.js";
+import {
+  categorizeTransactionTool,
+  listCategoriesTool,
+  listUncategorizedTool,
+  manageCategoriesTool,
+  setCategoryRuleTool,
+} from "./categories.js";
 
 /**
  * Every MCP tool the server exposes. Grows one ticket at a time; the server and
@@ -18,6 +25,11 @@ export const allTools: AnyTool[] = [
   listTransactionsTool,
   searchTransactionsTool,
   refreshTool,
+  listCategoriesTool,
+  listUncategorizedTool,
+  manageCategoriesTool,
+  categorizeTransactionTool,
+  setCategoryRuleTool,
 ];
 
 export function toolByName(name: string): AnyTool | undefined {
