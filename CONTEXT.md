@@ -1,0 +1,101 @@
+# Budget AI App
+
+A household budgeting assistant backed by real bank data (via Akahu) and driven through conversational AI. It lets a household create monthly budgets, categorize and track spending, decide whether a purchase fits, and generate reports — with all financial math computed server-side and the AI supplying judgment.
+
+## Language
+
+### Household & identity
+
+**Household**:
+The top-level scope. Budgets belong to the Household and are shared across its Members. There is exactly one Household per deployment.
+_Avoid_: Family, group, tenant, organization
+
+**Member**:
+A person in the Household (e.g. the two partners). A Member may hold more than one Connection.
+_Avoid_: User, account, profile
+
+**Connection**:
+One Member's Akahu Personal App credential pair (`app_token` + `user_token`), granting read access to that Member's bank accounts.
+_Avoid_: Login, integration, credential, token (bare)
+
+### Money in
+
+**Account**:
+A bank account surfaced through a Connection. Belongs to a Member and rolls up to the Household.
+_Avoid_: Wallet, bank (as a noun for the account)
+
+**Transaction**:
+A single debit or credit on an Account, sourced from Akahu and cached in sqlite.
+_Avoid_: Entry, line item, payment
+
+**Income**:
+Household-level money in for a Period. **Expected income** is a figure the Household sets; **actual income** is the sum of credit Transactions tagged as income in the Period.
+_Avoid_: Salary, earnings, revenue
+
+### Categorization
+
+**Akahu Category**:
+Akahu's NZFCC-based tag on a Transaction (exposed via its `personal_finance` group). An input to categorization, never a budgeting unit itself.
+_Avoid_: Category (bare — always qualify)
+
+**Budget Category**:
+A household-defined envelope label (e.g. "Groceries", "Date nights"). The unit budgets are built from.
+_Avoid_: Bucket, tag, class, category (bare)
+
+**Mapping Rule**:
+Data in sqlite routing an Akahu Category or a merchant to a Budget Category. Seeded from `personal_finance` groups, then AI-refined.
+_Avoid_: Classifier, rule (bare)
+
+**Uncategorized**:
+The catch-all Budget Category for Transactions no Mapping Rule covers. Guarantees totals always reconcile.
+_Avoid_: Other, misc, unknown
+
+### The budget
+
+**Period**:
+A calendar month, stored as an explicit start/end date range. Governed by `budget_month_start_day` (default 1) so pay-cycle periods are a later config change, not a schema change.
+_Avoid_: Month (bare), cycle, term
+
+**Budget**:
+The set of Envelopes for a Household in a given Period.
+_Avoid_: Plan, allocation set
+
+**Envelope**:
+A Budget Category's dollar allocation for a Period, tracked as `allocated / spent / remaining`.
+_Avoid_: Line, allotment, fund
+
+**Slack**:
+An Envelope's unspent room this Period (`allocated − spent`). The basis for reallocation suggestions.
+_Avoid_: Surplus, headroom (headroom is reserved — see below), leftover
+
+**Household headroom**:
+Money not yet assigned to any Envelope this Period (`income − total allocated`).
+_Avoid_: Slack (slack is per-Envelope), surplus
+
+**Reallocate**:
+Moving allocation from one Envelope to another — the explicit write a user confirms after a purchase decision.
+_Avoid_: Transfer (implies moving real money, which this system never does), rebalance
+
+### Purchases & planning
+
+**Planned Purchase**:
+A persisted intended expense — `{description, amount, target_category, target_period, priority, status}`. A list entry, **not** a reservation against an Envelope.
+_Avoid_: Reservation, earmark, wishlist item, goal
+
+**Evaluate purchase**:
+The read-only analysis of whether one purchase fits, returning structured facts (target Envelope remaining, verdict, reallocatable Slack, Household headroom, days left). Advisory only — changes nothing.
+_Avoid_: Approve, authorize
+
+**Plan period**:
+The read-only collective analysis of all Planned Purchases for a Period, greedily testing what fits by priority.
+_Avoid_: Forecast, schedule
+
+### System
+
+**Data-as-of**:
+The freshness timestamp attached to every read, reflecting the last successful Akahu sync.
+_Avoid_: Last updated, synced at
+
+**Workflow guide**:
+Server-side step-by-step guidance for a flow (`create_budget`, `review_spending`, `plan_purchase`, `monthly_report`), fetched identically by Claude skills and the ChatGPT custom GPT.
+_Avoid_: Playbook, script, prompt (bare)
