@@ -39,3 +39,6 @@ coverage/
 .vscode/*
 !.vscode/extensions.json
 *.swp
+
+# Budget exports (CSV etc.) — local financial data, never commit
+exports/
