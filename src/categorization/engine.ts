@@ -186,11 +186,6 @@ export function isSystemCategory(ctx: AppContext, categoryId: number): boolean {
   return row?.isSystem ?? false;
 }
 
-/** Resolve a merchant/group pair without loading a full resolver (for tests). */
-export function resolveOne(ctx: AppContext, merchant: string | null, group: string | null): number {
-  return buildResolver(ctx).resolve(merchant, group);
-}
-
 /** Guard: does a category exist? */
 export function categoryExists(ctx: AppContext, categoryId: number): boolean {
   return (

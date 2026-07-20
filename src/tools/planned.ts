@@ -7,7 +7,9 @@ import { withWrite } from "../write.js";
 import { categoryExists } from "../categorization/engine.js";
 import { computeBudget, resolvePeriod } from "../budget/engine.js";
 import { planPeriod, type PlanItemInput } from "../planned/engine.js";
+import { periodView } from "../period.js";
 import { defineTool } from "./types.js";
+import { optionalPeriod, periodKeySchema } from "./schemas.js";
 import type { AppContext } from "../context.js";
 
 function shapePlanned(r: typeof plannedPurchases.$inferSelect) {
@@ -36,7 +38,7 @@ export const addPlannedPurchaseTool = defineTool({
     description: z.string().min(1),
     amount_cents: z.number().int().min(1),
     target_category_id: z.number().int().optional(),
-    target_period: z.string().regex(/^\d{4}-\d{2}$/),
+    target_period: periodKeySchema,
     priority: z.number().int().default(0),
   },
   handler: (ctx, input) => {
@@ -78,7 +80,7 @@ export const listPlannedPurchasesTool = defineTool({
     "List Planned Purchases, optionally filtered by status (planned/purchased/dropped) and target Period. Read-only with data-as-of.",
   inputSchema: {
     status: z.enum(["planned", "purchased", "dropped"]).optional(),
-    period: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+    period: periodKeySchema.optional(),
   },
   handler: (ctx, input) => {
     const filters = [];
@@ -104,7 +106,7 @@ export const updatePlannedPurchaseTool = defineTool({
     description: z.string().min(1).optional(),
     amount_cents: z.number().int().min(1).optional(),
     target_category_id: z.number().int().nullable().optional(),
-    target_period: z.string().regex(/^\d{4}-\d{2}$/).optional(),
+    target_period: periodKeySchema.optional(),
     priority: z.number().int().optional(),
   },
   handler: (ctx, input) => {
@@ -173,7 +175,7 @@ export const planPeriodTool = defineTool({
   name: "plan_period",
   description:
     "Greedily test all planned wishlist items for a Period (by priority) against real remaining Envelope room and Household headroom. Each item is fits / fits_if_reallocated / doesnt_fit. Read-only; reserves nothing.",
-  inputSchema: { period: z.string().regex(/^\d{4}-\d{2}$/).optional() },
+  inputSchema: { period: optionalPeriod },
   handler: (ctx, input) => {
     const period = resolvePeriod(ctx, input.period);
     const snapshot = computeBudget(ctx, period);
@@ -196,7 +198,7 @@ export const planPeriodTool = defineTool({
     }));
     const plan = planPeriod(snapshot, items);
     return {
-      period: { key: period.key, start: period.startDate, end: period.endDate },
+      period: periodView(period),
       ...plan,
       data_as_of: getDataAsOf(ctx),
     };

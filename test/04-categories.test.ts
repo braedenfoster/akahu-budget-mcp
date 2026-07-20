@@ -11,6 +11,7 @@ import {
   manageCategoriesTool,
   setCategoryRuleTool,
 } from "../src/tools/categories.js";
+import { listTransactionsTool } from "../src/tools/transactions.js";
 import { invokeTool } from "../src/tools/types.js";
 import { putSetting } from "../src/context.js";
 import { ReadOnlyError } from "../src/write.js";
@@ -67,6 +68,16 @@ describe("ticket 04 — categorization (Seam 1)", () => {
 
     const uncategorized = invokeTool(ctx, listUncategorizedTool, {});
     expect(uncategorized.transactions.map((t) => t.id)).toEqual(["t3"]);
+  });
+
+  it("list_transactions can filter by Budget Category (user story 14)", async () => {
+    const ctx = await setup([
+      sampleTransaction({ id: "t1", amount: -25, group: "Groceries" }),
+      sampleTransaction({ id: "t2", amount: -10, group: "Transport" }),
+    ]);
+    const groceries = categoryIdByName(ctx, "Groceries");
+    const out = invokeTool(ctx, listTransactionsTool, { category_id: groceries });
+    expect(out.transactions.map((t) => t.id)).toEqual(["t1"]);
   });
 
   it("a merchant rule with backfill reclassifies existing history", async () => {

@@ -9,19 +9,14 @@ import {
   copyAllocations,
   ensureBudget,
   findBudget,
-  getAllocation,
+  reallocate,
   resolvePeriod,
   setAllocation,
 } from "../budget/engine.js";
 import { previousPeriod } from "../period.js";
 import { budgetMonthStartDay } from "../context.js";
 import { defineTool } from "./types.js";
-
-const periodInput = z
-  .string()
-  .regex(/^\d{4}-\d{2}$/)
-  .optional()
-  .describe("Period key YYYY-MM; defaults to the current Period");
+import { optionalPeriod as periodInput } from "./schemas.js";
 
 /** Return the full computed Budget picture for a Period (user story 26). */
 export const getBudgetTool = defineTool({
@@ -167,19 +162,7 @@ export const reallocateTool = defineTool({
       },
       () => {
         const budgetId = ensureBudget(ctx, period);
-        const fromAllocated = getAllocation(ctx, budgetId, input.from_category_id);
-        if (fromAllocated < input.amount_cents) {
-          throw new Error(
-            `Source Envelope has only ${fromAllocated}c allocated; cannot move ${input.amount_cents}c.`,
-          );
-        }
-        setAllocation(ctx, budgetId, input.from_category_id, fromAllocated - input.amount_cents);
-        setAllocation(
-          ctx,
-          budgetId,
-          input.to_category_id,
-          getAllocation(ctx, budgetId, input.to_category_id) + input.amount_cents,
-        );
+        reallocate(ctx, budgetId, input.from_category_id, input.to_category_id, input.amount_cents);
         return computeBudget(ctx, period);
       },
     );

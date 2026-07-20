@@ -62,7 +62,7 @@ describe("ticket 08 — get_period_summary (Seam 1)", () => {
 
     expect(out.income_vs_spend).toEqual({
       income_cents: 400000,
-      spend_cents: 11500, // 8000 + 2000 + 1500
+      spent_cents: 11500, // 8000 + 2000 + 1500
       net_cents: 388500,
     });
 
@@ -87,6 +87,6 @@ describe("ticket 08 — get_period_summary (Seam 1)", () => {
       allocated_cents: 0,
       spent_cents: 4000,
     });
-    expect(out.income_vs_spend.spend_cents).toBe(4000);
+    expect(out.income_vs_spend.spent_cents).toBe(4000);
   });
 });

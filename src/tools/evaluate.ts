@@ -2,9 +2,10 @@ import { z } from "zod";
 import { getDataAsOf } from "../context.js";
 import { computeBudget, resolvePeriod } from "../budget/engine.js";
 import { evaluatePurchase } from "../analysis/evaluate.js";
-import { daysLeftInPeriod } from "../period.js";
+import { daysLeftInPeriod, periodView } from "../period.js";
 import { categoryExists } from "../categorization/engine.js";
 import { defineTool } from "./types.js";
+import { optionalPeriod } from "./schemas.js";
 
 /**
  * Advisory, strictly read-only purchase evaluation (ticket 06, ADR-0003). Never
@@ -21,10 +22,7 @@ export const evaluatePurchaseTool = defineTool({
       .int()
       .optional()
       .describe("Target Budget Category; omit to evaluate against Household headroom only"),
-    period: z
-      .string()
-      .regex(/^\d{4}-\d{2}$/)
-      .optional(),
+    period: optionalPeriod,
   },
   handler: (ctx, input) => {
     if (input.category_id !== undefined && !categoryExists(ctx, input.category_id))
@@ -34,7 +32,7 @@ export const evaluatePurchaseTool = defineTool({
     const daysLeft = daysLeftInPeriod(period, ctx.now().toISOString());
     const evaluation = evaluatePurchase(snapshot, input.amount_cents, input.category_id, daysLeft);
     return {
-      period: { key: period.key, start: period.startDate, end: period.endDate },
+      period: periodView(period),
       ...evaluation,
       data_as_of: getDataAsOf(ctx),
     };

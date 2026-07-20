@@ -1,20 +1,22 @@
-import { and, gte, isNotNull, lte, sql } from "drizzle-orm";
+import { and, gte, isNotNull, lte } from "drizzle-orm";
 import type { AppContext } from "../context.js";
 import { budgetMonthStartDay } from "../context.js";
 import { transactions } from "../db/schema.js";
-import { computeBudget, homeCurrency } from "../budget/engine.js";
-import { previousPeriod, type Period } from "../period.js";
+import {
+  computeBudget,
+  homeCurrency,
+  incomeNetSql,
+  nonIncomeNetSql,
+} from "../budget/engine.js";
+import { periodView, previousPeriod, type Period } from "../period.js";
 
-/** Total spend (net of non-income credits) and income for a Period, in cents. */
+/** Total spend (net of non-income credits and transfers) and income, in cents. */
 export function periodTotals(ctx: AppContext, period: Period): {
   spent_cents: number;
   income_cents: number;
 } {
   const row = ctx.db
-    .select({
-      netNonIncome: sql<number>`coalesce(sum(case when ${transactions.isIncome} = 0 then ${transactions.amountCents} else 0 end), 0)`,
-      income: sql<number>`coalesce(sum(case when ${transactions.isIncome} = 1 then ${transactions.amountCents} else 0 end), 0)`,
-    })
+    .select({ netNonIncome: nonIncomeNetSql, income: incomeNetSql })
     .from(transactions)
     .where(and(gte(transactions.date, period.startDate), lte(transactions.date, period.endDate)))
     .get();
@@ -29,10 +31,7 @@ export interface MerchantSpend {
 /** Top merchants by spend in a Period (excludes income and null merchants). */
 export function topMerchants(ctx: AppContext, period: Period, limit: number): MerchantSpend[] {
   const rows = ctx.db
-    .select({
-      merchant: transactions.merchant,
-      net: sql<number>`coalesce(sum(case when ${transactions.isIncome} = 0 then ${transactions.amountCents} else 0 end), 0)`,
-    })
+    .select({ merchant: transactions.merchant, net: nonIncomeNetSql })
     .from(transactions)
     .where(
       and(
@@ -87,7 +86,7 @@ export interface PeriodSummary {
     spent_cents: number;
     remaining_cents: number;
   }[];
-  income_vs_spend: { income_cents: number; spend_cents: number; net_cents: number };
+  income_vs_spend: { income_cents: number; spent_cents: number; net_cents: number };
   top_merchants: MerchantSpend[];
   trend: TrendPoint[];
 }
@@ -106,7 +105,7 @@ export function computePeriodSummary(
   const budget = computeBudget(ctx, period);
   const totals = periodTotals(ctx, period);
   return {
-    period: { key: period.key, start: period.startDate, end: period.endDate },
+    period: periodView(period),
     currency: budget.currency || homeCurrency(ctx),
     has_budget: budget.has_budget,
     categories: budget.envelopes.map((e) => ({
@@ -118,7 +117,7 @@ export function computePeriodSummary(
     })),
     income_vs_spend: {
       income_cents: totals.income_cents,
-      spend_cents: totals.spent_cents,
+      spent_cents: totals.spent_cents,
       net_cents: totals.income_cents - totals.spent_cents,
     },
     top_merchants: topMerchants(ctx, period, opts.topMerchantsLimit),

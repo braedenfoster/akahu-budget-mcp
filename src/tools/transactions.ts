@@ -8,6 +8,7 @@ import { accounts, connections, members, transactions } from "../db/schema.js";
 import { formatCents } from "../money.js";
 import { periodFromKey } from "../period.js";
 import { defineTool } from "./types.js";
+import { optionalPeriod } from "./schemas.js";
 import type { AppContext } from "../context.js";
 
 const txnShape = {
@@ -79,13 +80,14 @@ function runTxnQuery(ctx: AppContext, filters: SQL[], limit: number): TxnSelectR
 export const listTransactionsTool = defineTool({
   name: "list_transactions",
   description:
-    "List cached Transactions filtered by Period (YYYY-MM), account_id, member, merchant substring, and signed amount range (cents). Read-only with a data-as-of stamp.",
+    "List cached Transactions filtered by Period (YYYY-MM), Budget Category, account_id, member, merchant substring, and signed amount range (cents). Read-only with a data-as-of stamp.",
   inputSchema: {
-    period: z
-      .string()
-      .regex(/^\d{4}-\d{2}$/)
+    period: optionalPeriod,
+    category_id: z
+      .number()
+      .int()
       .optional()
-      .describe("Period key YYYY-MM; filters to that Period's date range"),
+      .describe("Budget Category id to filter by"),
     account_id: z.string().optional(),
     member: z.string().optional().describe("Member name (exact match)"),
     merchant: z.string().optional().describe("Merchant name substring match"),
@@ -100,6 +102,8 @@ export const listTransactionsTool = defineTool({
       filters.push(gte(transactions.date, p.startDate));
       filters.push(lte(transactions.date, p.endDate));
     }
+    if (input.category_id !== undefined)
+      filters.push(eq(transactions.budgetCategoryId, input.category_id));
     if (input.account_id) filters.push(eq(transactions.accountId, input.account_id));
     if (input.member) filters.push(eq(members.name, input.member));
     if (input.merchant) filters.push(like(transactions.merchant, `%${input.merchant}%`));

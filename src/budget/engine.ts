@@ -6,11 +6,21 @@ import {
   SETTING_HOME_CURRENCY,
 } from "../context.js";
 import { budgetCategories, budgets, envelopes, transactions } from "../db/schema.js";
-import { periodForDate, periodFromKey, type Period } from "../period.js";
+import { periodForDate, periodFromKey, periodView, type Period } from "../period.js";
 
 export function homeCurrency(ctx: AppContext): string {
   return getSetting(ctx, SETTING_HOME_CURRENCY) ?? "NZD";
 }
+
+/**
+ * Shared aggregation fragments (single source of truth for the spend/income
+ * definitions across the budget and reports engines; ADR-0008 endorses
+ * hand-written SQL for aggregations). `nonIncomeNet` is the signed net of
+ * spend-relevant transactions (excludes income and internal transfers);
+ * `incomeNet` is the sum of income-tagged credits.
+ */
+export const nonIncomeNetSql = sql<number>`coalesce(sum(case when ${transactions.isIncome} = 0 and (${transactions.type} is null or ${transactions.type} != 'TRANSFER') then ${transactions.amountCents} else 0 end), 0)`;
+export const incomeNetSql = sql<number>`coalesce(sum(case when ${transactions.isIncome} = 1 then ${transactions.amountCents} else 0 end), 0)`;
 
 /** Resolve a Period from an optional key; default is the Period containing now. */
 export function resolvePeriod(ctx: AppContext, key?: string): Period {
@@ -73,6 +83,28 @@ export function setAllocation(
     .run();
 }
 
+/**
+ * Move allocation between two Envelopes of a budget (the Reallocate domain
+ * operation, user story 29). Allocations stay non-negative: throws if the source
+ * Envelope holds less than `amountCents`. No real money moves — planning only.
+ */
+export function reallocate(
+  ctx: AppContext,
+  budgetId: number,
+  fromCategoryId: number,
+  toCategoryId: number,
+  amountCents: number,
+): void {
+  const fromAllocated = getAllocation(ctx, budgetId, fromCategoryId);
+  if (fromAllocated < amountCents) {
+    throw new Error(
+      `Source Envelope has only ${fromAllocated}c allocated; cannot move ${amountCents}c.`,
+    );
+  }
+  setAllocation(ctx, budgetId, fromCategoryId, fromAllocated - amountCents);
+  setAllocation(ctx, budgetId, toCategoryId, getAllocation(ctx, budgetId, toCategoryId) + amountCents);
+}
+
 /** Copy allocations and expected income from a source budget into a target. */
 export function copyAllocations(ctx: AppContext, fromBudgetId: number, toBudgetId: number): void {
   const rows = ctx.db
@@ -84,16 +116,18 @@ export function copyAllocations(ctx: AppContext, fromBudgetId: number, toBudgetI
 }
 
 /**
- * Per-category net spend for a Period. Spend excludes income-tagged credits so
- * salary landing in an account never masquerades as negative spending; ordinary
- * refunds (non-income credits) reduce the category's spend.
+ * Per-category net spend for a Period. Spend excludes income-tagged credits (so
+ * salary never masquerades as negative spending) and internal transfers (moving
+ * money between the Household's own accounts isn't spending). In V1 every
+ * non-transfer credit is tagged income (spec story 28: variable income captured
+ * without special handling), so a store refund is counted as income rather than
+ * reducing a category's spend — refining refund-vs-income is deferred.
  */
 function spendByCategory(ctx: AppContext, period: Period): Map<number, number> {
   const rows = ctx.db
     .select({
       categoryId: transactions.budgetCategoryId,
-      // Net amount over non-income transactions (signed: debit negative).
-      netAmount: sql<number>`coalesce(sum(case when ${transactions.isIncome} = 0 then ${transactions.amountCents} else 0 end), 0)`,
+      netAmount: nonIncomeNetSql,
     })
     .from(transactions)
     .where(and(gte(transactions.date, period.startDate), lte(transactions.date, period.endDate)))
@@ -110,9 +144,7 @@ function spendByCategory(ctx: AppContext, period: Period): Map<number, number> {
 /** Actual income for a Period: sum of income-tagged credits (cents). */
 export function actualIncomeCents(ctx: AppContext, period: Period): number {
   const row = ctx.db
-    .select({
-      total: sql<number>`coalesce(sum(case when ${transactions.isIncome} = 1 then ${transactions.amountCents} else 0 end), 0)`,
-    })
+    .select({ total: incomeNetSql })
     .from(transactions)
     .where(and(gte(transactions.date, period.startDate), lte(transactions.date, period.endDate)))
     .get();
@@ -200,7 +232,7 @@ export function computeBudget(ctx: AppContext, period: Period): BudgetSnapshot {
   const incomeBasis = expected ?? actual;
 
   return {
-    period: { key: period.key, start: period.startDate, end: period.endDate },
+    period: periodView(period),
     currency: budget?.currency ?? homeCurrency(ctx),
     has_budget: budget !== undefined,
     envelopes: envelopeViews,

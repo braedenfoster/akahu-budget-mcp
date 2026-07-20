@@ -99,6 +99,11 @@ export function previousPeriod(period: Period, startDay: number): Period {
   return periodForMonth(prevYear, prevMonth, startDay);
 }
 
+/** The standard `{ key, start, end }` view of a Period used in tool outputs. */
+export function periodView(period: Period): { key: string; start: string; end: string } {
+  return { key: period.key, start: period.startDate, end: period.endDate };
+}
+
 /** Whole days remaining in the Period, inclusive of `asOf` (>= 0). */
 export function daysLeftInPeriod(period: Period, asOf: string): number {
   const asOfDate = new Date(`${asOf.slice(0, 10)}T00:00:00.000Z`);

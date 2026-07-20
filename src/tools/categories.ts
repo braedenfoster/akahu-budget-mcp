@@ -15,6 +15,7 @@ import {
 } from "../categorization/engine.js";
 import { mappingRules } from "../db/schema.js";
 import { defineTool } from "./types.js";
+import { periodKeySchema } from "./schemas.js";
 
 /** List all Budget Categories with how many Transactions each currently holds. */
 export const listCategoriesTool = defineTool({
@@ -127,10 +128,7 @@ export const listUncategorizedTool = defineTool({
   description:
     "List Transactions currently resolved to Uncategorized, optionally within a Period (YYYY-MM). Read-only with data-as-of.",
   inputSchema: {
-    period: z
-      .string()
-      .regex(/^\d{4}-\d{2}$/)
-      .optional(),
+    period: periodKeySchema.optional(),
     limit: z.number().int().min(1).max(1000).default(200),
   },
   handler: (ctx, input) => {
