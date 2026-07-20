@@ -27,8 +27,50 @@ export interface AkahuAccount {
   [key: string]: unknown;
 }
 
+export interface AkahuMerchant {
+  _id?: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
+export interface AkahuCategory {
+  _id?: string;
+  name?: string;
+  groups?: {
+    personal_finance?: { _id?: string; name?: string };
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+export interface AkahuTransaction {
+  _id: string;
+  _account: string;
+  /** Transaction date, ISO-8601. */
+  date: string;
+  description?: string;
+  /** Signed amount in MAJOR units (dollars): negative = debit, positive = credit. */
+  amount: number;
+  currency?: string;
+  type?: string;
+  pending?: boolean;
+  merchant?: AkahuMerchant;
+  category?: AkahuCategory;
+  [key: string]: unknown;
+}
+
+export interface AkahuTransactionsPage {
+  items: AkahuTransaction[];
+  /** Position to resume from on the next sync; null if never established. */
+  nextCursor: string | null;
+  /** True when more pages are available right now (fetch again immediately). */
+  hasMore: boolean;
+}
+
 /** One Member's Akahu access. Constructed per Connection. */
 export interface AkahuClient {
   /** List all Accounts visible to this Connection. */
   listAccounts(): Promise<AkahuAccount[]>;
+  /** List Transactions incrementally from the given cursor (null = from start). */
+  listTransactions(opts: { cursor: string | null }): Promise<AkahuTransactionsPage>;
 }

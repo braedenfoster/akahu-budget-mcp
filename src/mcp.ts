@@ -21,7 +21,7 @@ export function buildMcpServer(ctx: AppContext): McpServer {
       // The SDK validates args against inputSchema before calling us.
       async (args: unknown) => {
         try {
-          const output = tool.handler(ctx, args as never);
+          const output = await tool.handler(ctx, args as never);
           return {
             content: [{ type: "text" as const, text: JSON.stringify(output, null, 2) }],
             structuredContent: output as Record<string, unknown>,

@@ -124,3 +124,41 @@ export const balanceSnapshots = sqliteTable(
   },
   (t) => ({ perDay: unique().on(t.accountId, t.date) }),
 );
+
+// --- Ticket 03: transactions + sync cursor --------------------------------
+
+/**
+ * Cached Transactions. Typed columns for querying plus the full raw Akahu
+ * payload, so categorization is fully re-derivable without re-fetching
+ * (ADR-0005). `amountCents` is signed as Akahu reports it: negative = debit
+ * (money out), positive = credit (money in).
+ */
+export const transactions = sqliteTable("transactions", {
+  akahuId: text("akahu_id").primaryKey(),
+  accountId: text("account_id")
+    .notNull()
+    .references(() => accounts.akahuId),
+  date: text("date").notNull(), // YYYY-MM-DD (calendar date of the transaction)
+  amountCents: integer("amount_cents").notNull(),
+  currency: text("currency").notNull(),
+  description: text("description").notNull(),
+  merchant: text("merchant"),
+  akahuCategoryId: text("akahu_category_id"),
+  // Akahu's personal_finance group name, the seed for Mapping Rules (ADR-0007).
+  akahuCategoryGroup: text("akahu_category_group"),
+  type: text("type"),
+  pending: integer("pending", { mode: "boolean" }).notNull().default(false),
+  // Whether this credit counts as household Income (ticket 05). Derived on sync.
+  isIncome: integer("is_income", { mode: "boolean" }).notNull().default(false),
+  raw: text("raw").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/** Per-Connection incremental sync cursor + last-synced stamp (ADR-0005). */
+export const syncState = sqliteTable("sync_state", {
+  connectionId: integer("connection_id")
+    .primaryKey()
+    .references(() => connections.id),
+  cursor: text("cursor"),
+  lastSyncedAt: text("last_synced_at"),
+});

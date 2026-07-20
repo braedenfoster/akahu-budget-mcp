@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "./db/index.js";
 import { settings } from "./db/schema.js";
+import type { SyncResult } from "./sync/result.js";
 
 /**
  * Everything a tool handler needs, injected rather than reached for. The clock
@@ -10,11 +11,20 @@ export interface AppContext {
   db: Db;
   /** Current instant. Overridable in tests for deterministic date logic. */
   now: () => Date;
+  /**
+   * Triggers a live Akahu sync. Injected at startup with real clients; the
+   * `refresh` tool calls it. Undefined in unit tests that don't exercise sync.
+   */
+  syncRunner?: () => Promise<SyncResult>;
 }
 
 /** Build a context with a real wall clock. Tests pass their own `now`. */
-export function makeContext(db: Db, now: () => Date = () => new Date()): AppContext {
-  return { db, now };
+export function makeContext(
+  db: Db,
+  now: () => Date = () => new Date(),
+  syncRunner?: AppContext["syncRunner"],
+): AppContext {
+  return { db, now, syncRunner };
 }
 
 // --- Settings accessors -----------------------------------------------------
