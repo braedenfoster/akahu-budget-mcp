@@ -1,9 +1,9 @@
 import { sql } from "drizzle-orm";
 import {
   integer,
-  primaryKey,
   sqliteTable,
   text,
+  unique,
 } from "drizzle-orm/sqlite-core";
 
 /**
@@ -45,3 +45,82 @@ export const auditLog = sqliteTable("audit_log", {
   // JSON-encoded structured detail of what changed. Never contains secrets.
   payload: text("payload"),
 });
+
+// --- Ticket 02: household, members, connections, accounts, snapshots -------
+
+/** The single Household per deployment (ADR-0001). Exactly one row. */
+export const households = sqliteTable("households", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+/** A person in the Household. May hold more than one Connection. */
+export const members = sqliteTable(
+  "members",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    householdId: integer("household_id")
+      .notNull()
+      .references(() => households.id),
+    name: text("name").notNull(),
+    // Reserved for Phase 2 email->Member mapping (ADR-0002); nullable in V1.
+    email: text("email"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => ({ nameUnique: unique().on(t.householdId, t.name) }),
+);
+
+/**
+ * One Member's Akahu Personal App credential pair. Tokens are NEVER stored in
+ * sqlite — they live in `.env`/memory only. `akahuIndex` links this row back to
+ * its `AKAHU_*_<index>` env pair at sync time.
+ */
+export const connections = sqliteTable("connections", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  memberId: integer("member_id")
+    .notNull()
+    .references(() => members.id),
+  akahuIndex: integer("akahu_index").notNull().unique(),
+  label: text("label").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+/**
+ * A bank Account surfaced through a Connection. Keyed on Akahu's account id.
+ * Member attribution is derived via connection -> member.
+ */
+export const accounts = sqliteTable("accounts", {
+  akahuId: text("akahu_id").primaryKey(),
+  connectionId: integer("connection_id")
+    .notNull()
+    .references(() => connections.id),
+  name: text("name").notNull(),
+  type: text("type"),
+  formattedAccount: text("formatted_account"),
+  balanceCents: integer("balance_cents").notNull(),
+  currency: text("currency").notNull(),
+  // Full raw Akahu account payload as JSON, for re-derivation/debugging.
+  raw: text("raw").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/**
+ * One balance reading per Account per day (ADR-0005), seeding the deferred
+ * cashflow feature with history. Keyed on (account, date); re-running a sync the
+ * same day updates the day's snapshot rather than duplicating it.
+ */
+export const balanceSnapshots = sqliteTable(
+  "balance_snapshots",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => accounts.akahuId),
+    date: text("date").notNull(), // YYYY-MM-DD
+    balanceCents: integer("balance_cents").notNull(),
+    currency: text("currency").notNull(),
+    capturedAt: text("captured_at").notNull(),
+  },
+  (t) => ({ perDay: unique().on(t.accountId, t.date) }),
+);

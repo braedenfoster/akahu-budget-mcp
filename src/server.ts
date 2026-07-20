@@ -5,6 +5,8 @@ import { loadConfig } from "./config.js";
 import { makeContext } from "./context.js";
 import { openAndMigrate } from "./db/index.js";
 import { seedSettingsFromConfig } from "./bootstrap.js";
+import { seedHouseholdFromConfig } from "./household.js";
+import { buildAccountJobs, runSync } from "./sync/index.js";
 import { buildMcpServer } from "./mcp.js";
 
 /**
@@ -19,6 +21,18 @@ async function main(): Promise<void> {
   const ctx = makeContext(db);
 
   seedSettingsFromConfig(ctx, config);
+  const seeded = seedHouseholdFromConfig(ctx, config);
+  const jobs = buildAccountJobs(seeded, config);
+
+  // Best-effort sync on boot so the first read isn't empty. Never fatal: the Pi
+  // may be offline or Akahu unreachable; the nightly cron (ticket 03) retries.
+  if (jobs.length > 0) {
+    runSync(ctx, jobs, config.homeCurrency)
+      .then((r) => console.log(`Startup sync: ${r.accountsUpserted} accounts`))
+      .catch((err) =>
+        console.error("Startup sync failed:", err instanceof Error ? err.message : err),
+      );
+  }
 
   const app = express();
   app.use(express.json());
