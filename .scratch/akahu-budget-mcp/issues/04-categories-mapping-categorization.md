@@ -4,11 +4,11 @@
 
 **Blocked by:** 03.
 
-**Status:** ready-for-agent
+**Status:** shipped — implemented on `main` (commit 944f62a).
 
-- [ ] `budget_categories` and `mapping_rules` tables exist; an explicit **Uncategorized** Budget Category always exists so totals reconcile.
-- [ ] On import, each Transaction resolves to a Budget Category via Mapping Rules seeded from `personal_finance` groups; unmatched → Uncategorized.
-- [ ] `manage_categories` (create/rename/merge) and `list_categories` work; `list_uncategorized` returns unmapped Transactions for the Period.
-- [ ] `categorize_transaction` sets a one-off assignment; `set_category_rule` (merchant or Akahu Category → Budget Category) creates a rule with **optional backfill**, re-deriving affected Transactions from the stored `raw` payload (no Akahu re-fetch).
-- [ ] Category/rule mutations go through the write wrapper (audited, read-only-aware).
-- [ ] Seam 1 tests: seed transactions → assert correct Budget Category resolution; add a rule with backfill → assert history reclassifies; rename/merge preserves reconciliation.
+- [x] `budget_categories` and `mapping_rules` tables exist; an explicit **Uncategorized** Budget Category always exists so totals reconcile.
+- [x] On import, each Transaction resolves to a Budget Category via Mapping Rules seeded from `personal_finance` groups; unmatched → Uncategorized.
+- [x] `manage_categories` (create/rename/merge) and `list_categories` work; `list_uncategorized` returns unmapped Transactions for the Period.
+- [x] `categorize_transaction` sets a one-off assignment; `set_category_rule` (merchant or Akahu Category → Budget Category) creates a rule with **optional backfill**, re-deriving affected Transactions from the stored `raw` payload (no Akahu re-fetch).
+- [x] Category/rule mutations go through the write wrapper (audited, read-only-aware).
+- [x] Seam 1 tests: seed transactions → assert correct Budget Category resolution; add a rule with backfill → assert history reclassifies; rename/merge preserves reconciliation.

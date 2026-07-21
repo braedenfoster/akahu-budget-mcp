@@ -4,10 +4,10 @@
 
 **Blocked by:** 04, 05, 06, 07, 08.
 
-**Status:** ready-for-agent
+**Status:** shipped — implemented on `main` (commit 8427b4a).
 
-- [ ] `get_workflow_guide(flow)` returns step-by-step guidance for `create_budget`, `review_spending`, `plan_purchase`, and `monthly_report`, each orchestrating the relevant tools.
-- [ ] Four thin Claude skills wrap the guides as `/slash` commands; they contain no budgeting logic — they fetch the guide and follow it.
-- [ ] Each flow is walkable end-to-end against a seeded/real dataset: create a budget; clear Uncategorized + spot overspend; evaluate a purchase + weigh the wishlist; produce a monthly report.
-- [ ] Confirm whether ChatGPT surfaces MCP prompts; since guidance is a **tool**, it works regardless (documented for Phase 2).
-- [ ] Seam 1 test: `get_workflow_guide` returns a guide for each of the four flow names and errors cleanly on an unknown flow.
+- [x] `get_workflow_guide(flow)` returns step-by-step guidance for `create_budget`, `review_spending`, `plan_purchase`, and `monthly_report`, each orchestrating the relevant tools.
+- [x] Four thin Claude skills wrap the guides as `/slash` commands; they contain no budgeting logic — they fetch the guide and follow it.
+- [x] Each flow is walkable end-to-end against a seeded/real dataset: create a budget; clear Uncategorized + spot overspend; evaluate a purchase + weigh the wishlist; produce a monthly report.
+- [x] Confirm whether ChatGPT surfaces MCP prompts; since guidance is a **tool**, it works regardless (documented for Phase 2).
+- [x] Seam 1 test: `get_workflow_guide` returns a guide for each of the four flow names and errors cleanly on an unknown flow.

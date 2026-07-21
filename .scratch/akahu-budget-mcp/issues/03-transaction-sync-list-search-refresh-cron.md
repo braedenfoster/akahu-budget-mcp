@@ -4,10 +4,10 @@
 
 **Blocked by:** 02.
 
-**Status:** ready-for-agent
+**Status:** shipped — implemented on `main` (commit e470455).
 
-- [ ] `transactions` table stores typed columns for querying (`akahu_id`, `account_id`, `date`, `amount` in cents, `currency`, `description`, `merchant`, `akahu_category_id`, `type`, `pending`) **plus** the full `raw` Akahu payload as JSON. `sync_state` holds a per-Connection cursor.
-- [ ] Sync is incremental (since cursor) with **idempotent upserts keyed on Akahu txn `_id`**; pending→settled applied as updates, never delete-and-reinsert; never deletes; history retained indefinitely.
-- [ ] `refresh` tool triggers an immediate incremental sync and reports what changed; a `node-cron` in-process job runs it nightly.
-- [ ] `list_transactions` filters by Period, Account, Member, merchant, amount range; `search_transactions` does text search; both stamp `data-as-of`.
-- [ ] Seam 2 invariant tests: re-syncing overlapping windows produces **no double-counting**; a pending txn that settles updates in place; balance snapshots continue to accrue.
+- [x] `transactions` table stores typed columns for querying (`akahu_id`, `account_id`, `date`, `amount` in cents, `currency`, `description`, `merchant`, `akahu_category_id`, `type`, `pending`) **plus** the full `raw` Akahu payload as JSON. `sync_state` holds a per-Connection cursor.
+- [x] Sync is incremental (since cursor) with **idempotent upserts keyed on Akahu txn `_id`**; pending→settled applied as updates, never delete-and-reinsert; never deletes; history retained indefinitely.
+- [x] `refresh` tool triggers an immediate incremental sync and reports what changed; a `node-cron` in-process job runs it nightly.
+- [x] `list_transactions` filters by Period, Account, Member, merchant, amount range; `search_transactions` does text search; both stamp `data-as-of`.
+- [x] Seam 2 invariant tests: re-syncing overlapping windows produces **no double-counting**; a pending txn that settles updates in place; balance snapshots continue to accrue.

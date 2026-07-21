@@ -4,9 +4,9 @@
 
 **Blocked by:** 05.
 
-**Status:** ready-for-agent
+**Status:** shipped — implemented on `main` (commit 2bc90cb).
 
-- [ ] `evaluate_purchase(amount, category_id?)` returns: target Envelope + remaining, fit verdict (fits / fits-if-reallocated / doesn't-fit) + shortfall, **ranked reallocatable Slack** `{category, slack_amount}`, Household headroom, days left, `data-as-of`.
-- [ ] The tool is strictly **read-only** — it never mutates budget state.
-- [ ] With no `category_id`, it evaluates against Household headroom only (no target Envelope).
-- [ ] Seam 1 tests cover: comfortably fits; fits only via reallocation; doesn't fit at all; no-category case — all asserting exact integer-cent figures.
+- [x] `evaluate_purchase(amount, category_id?)` returns: target Envelope + remaining, fit verdict (fits / fits-if-reallocated / doesn't-fit) + shortfall, **ranked reallocatable Slack** `{category, slack_amount}`, Household headroom, days left, `data-as-of`.
+- [x] The tool is strictly **read-only** — it never mutates budget state.
+- [x] With no `category_id`, it evaluates against Household headroom only (no target Envelope).
+- [x] Seam 1 tests cover: comfortably fits; fits only via reallocation; doesn't fit at all; no-category case — all asserting exact integer-cent figures.
