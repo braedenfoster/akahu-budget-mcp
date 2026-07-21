@@ -4,8 +4,8 @@
 
 **Blocked by:** 01.
 
-**Status:** ready-for-agent
+**Status:** shipped — merged to `main` (commit d8ef0d7), validated on real data.
 
-- [ ] `get_budget` and `get_period_summary` `income` blocks gain `by_stream: [{stream, actual_cents}]` (ordered, exact integer cents); existing `expected_cents` / `actual_cents` unchanged (`actual_cents` still = sum of `is_income` credits).
-- [ ] `income_coverage` returns, per connected Account (and rolled up), the Income seen in the Period and flags Accounts with zero Income as possible missing-income sources; read-only with `data-as-of`.
-- [ ] Seam 1 tests over seeded multi-stream fixtures: `by_stream` figures exact (incl. a period where a Stream is zero); `income_coverage` flags a zero-income Account; a Period with no budget still reports income by Stream.
+- [x] `get_budget` and `get_period_summary` `income` blocks gain `by_stream: [{stream, actual_cents}]` (ordered, exact integer cents); existing `expected_cents` / `actual_cents` unchanged (`actual_cents` still = sum of `is_income` credits).
+- [x] `income_coverage` returns, per connected Account (and rolled up), the Income seen in the Period and flags Accounts with zero Income as possible missing-income sources; read-only with `data-as-of`.
+- [x] Seam 1 tests over seeded multi-stream fixtures: `by_stream` figures exact (incl. a period where a Stream is zero); `income_coverage` flags a zero-income Account; a Period with no budget still reports income by Stream.

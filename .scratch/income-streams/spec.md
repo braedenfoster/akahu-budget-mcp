@@ -1,6 +1,6 @@
 # Spec: Income Streams
 
-Status: ready-for-agent
+Status: shipped — all three tickets merged to `main` (commit d8ef0d7), validated on real data.
 
 _Builds on the shipped Akahu budgeting MCP. Vocabulary follows `CONTEXT.md` (Income, Income Stream, Unclassified income, Income Rule); the governing decision is ADR-0009, refining ADR-0004. Read those first._
 
