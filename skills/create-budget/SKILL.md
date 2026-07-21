@@ -12,3 +12,7 @@ budgeting logic** — the numbers all come from the MCP tools.
 2. Follow the returned steps in order, calling the tools it names.
 3. Convert any dollar amounts the user gives into integer cents before calling a
    tool; never do budget arithmetic yourself — the server owns every number.
+4. When confirming expected income, ground it in the per-Income-Stream actuals
+   the guide surfaces (e.g. Salary, PPL), and flag any Stream about to change —
+   such as a Paid Parental Leave stream ending — so the figure isn't just last
+   month's total.
