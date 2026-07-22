@@ -53,6 +53,9 @@ export function withWrite<T>(
         tool: meta.tool,
         summary: meta.summary,
         payload: meta.payload === undefined ? null : JSON.stringify(meta.payload),
+        // Attribution (ADR-0010): null when no actor is on the context.
+        actorMemberId: ctx.actor?.memberId ?? null,
+        actorSource: ctx.actor?.source ?? null,
       })
       .run();
     return result;

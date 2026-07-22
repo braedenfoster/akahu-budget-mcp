@@ -4,6 +4,17 @@ import { settings } from "./db/schema.js";
 import type { SyncResult } from "./sync/result.js";
 
 /**
+ * Who a mutating request is attributed to (ADR-0010). `tailnet` requests come in
+ * over the OAuth-free tailnet listener and are pinned to a configured default
+ * Member; `oauth` requests carry a Stytch-validated email resolved to a Member.
+ * Undefined when no actor is known (e.g. a deployment with no Members seeded).
+ */
+export interface Actor {
+  memberId: number;
+  source: "tailnet" | "oauth";
+}
+
+/**
  * Everything a tool handler needs, injected rather than reached for. The clock
  * (`now`) is injectable so Seam 1 tests are deterministic (ADR-0003 testing).
  */
@@ -16,6 +27,12 @@ export interface AppContext {
    * `refresh` tool calls it. Undefined in unit tests that don't exercise sync.
    */
   syncRunner?: () => Promise<SyncResult>;
+  /**
+   * The Member this request is attributed to, stamped onto audit rows by the
+   * write wrapper (ADR-0010). Undefined = no attribution (system writes, or a
+   * deployment without Members). Set per-request via {@link withActor}.
+   */
+  actor?: Actor;
 }
 
 /** Build a context with a real wall clock. Tests pass their own `now`. */
@@ -25,6 +42,15 @@ export function makeContext(
   syncRunner?: AppContext["syncRunner"],
 ): AppContext {
   return { db, now, syncRunner };
+}
+
+/**
+ * Clone a context with a request-scoped actor (ADR-0010). The base context is
+ * built once at startup; each `/mcp` request derives its own actor-stamped
+ * context so concurrent requests never share attribution state.
+ */
+export function withActor(ctx: AppContext, actor: Actor | undefined): AppContext {
+  return { ...ctx, actor };
 }
 
 // --- Settings accessors -----------------------------------------------------

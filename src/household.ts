@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import type { AppConfig } from "./config.js";
 import type { AppContext } from "./context.js";
 import { connections, households, members } from "./db/schema.js";
@@ -83,4 +83,74 @@ export function seedHouseholdFromConfig(
     });
     return { connectionId, akahuIndex: conn.index, memberName: conn.memberName };
   });
+}
+
+// --- Phase-2 email → Member mapping (ADR-0010) -----------------------------
+
+/**
+ * Attach the configured emails to Members (the Phase-2 allowlist). Runs at
+ * startup outside the write wrapper — system initialisation, like the household
+ * seed above. A configured Member that has no Connection is created here so an
+ * auth-only Member (e.g. a ChatGPT user without an Akahu account) can be mapped.
+ * Idempotent: config is the source of truth, so we overwrite on each boot.
+ */
+export function seedMemberEmailsFromConfig(ctx: AppContext, config: AppConfig): void {
+  if (config.memberEmails.length === 0) return;
+  const householdId = ensureHousehold(ctx);
+  for (const { name, email } of config.memberEmails) {
+    const memberId = ensureMember(ctx, householdId, name);
+    ctx.db.update(members).set({ email }).where(eq(members.id, memberId)).run();
+  }
+}
+
+/**
+ * Resolve an authenticated email to a Member id, case-insensitively (ADR-0010).
+ * Returns undefined when no Member carries that email — the caller turns that
+ * into a 403.
+ */
+export function findMemberByEmail(ctx: AppContext, email: string): number | undefined {
+  const row = ctx.db
+    .select({ id: members.id })
+    .from(members)
+    .where(sql`lower(${members.email}) = lower(${email})`)
+    .get();
+  return row?.id;
+}
+
+/**
+ * The Member the OAuth-free tailnet path is attributed to (ADR-0010). Uses the
+ * configured `TAILNET_DEFAULT_MEMBER` name when it matches a Member; otherwise
+ * (unset, or no match) falls back to the first seeded Member. Undefined only
+ * when no Members exist at all.
+ */
+export function resolveTailnetDefaultMember(
+  ctx: AppContext,
+  config: AppConfig,
+): number | undefined {
+  if (config.tailnetDefaultMember) {
+    const household = ctx.db.select({ id: households.id }).from(households).get();
+    if (household) {
+      const named = ctx.db
+        .select({ id: members.id })
+        .from(members)
+        .where(
+          and(
+            eq(members.householdId, household.id),
+            eq(members.name, config.tailnetDefaultMember),
+          ),
+        )
+        .get();
+      if (named) return named.id;
+      console.warn(
+        `TAILNET_DEFAULT_MEMBER="${config.tailnetDefaultMember}" matches no Member; ` +
+          `falling back to the first seeded Member.`,
+      );
+    }
+  }
+  const first = ctx.db
+    .select({ id: members.id })
+    .from(members)
+    .orderBy(asc(members.id))
+    .get();
+  return first?.id;
 }

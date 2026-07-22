@@ -44,6 +44,12 @@ export const auditLog = sqliteTable("audit_log", {
   summary: text("summary").notNull(),
   // JSON-encoded structured detail of what changed. Never contains secrets.
   payload: text("payload"),
+  // Phase-2 attribution (ADR-0010). Nullable so existing rows and system writes
+  // (no actor) stay valid. `actor_source` is 'tailnet' | 'oauth'.
+  actorMemberId: integer("actor_member_id").references(
+    (): typeof members.id => members.id,
+  ),
+  actorSource: text("actor_source"),
 });
 
 // --- Ticket 02: household, members, connections, accounts, snapshots -------

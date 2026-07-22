@@ -34,6 +34,11 @@ All config is environment (see `.env.example`): server host/port, `DATABASE_PATH
 and one numbered `AKAHU_*_<n>` credential trio per Household Member's Connection.
 Tokens live in memory only and are never logged or returned by any tool.
 
+Phase 2 (public + OAuth, ADR-0010) is opt-in via `PUBLIC_PORT`: setting it binds
+a second, OAuth-guarded listener (`STYTCH_PROJECT_ID` + `AUTH_ISSUER` +
+`AUTH_AUDIENCE`, with an `AUTH_MEMBER_EMAILS` allowlist). With it unset only the
+tailnet listener binds and V1 is unaffected. See `deploy/phase2-funnel-oauth.md`.
+
 ## Tools
 
 Reads carry a `data_as_of` stamp; writes are audited and refused in read-only
@@ -71,4 +76,6 @@ touch live Akahu.
 ## Deployment
 
 Self-hosted on a Raspberry Pi over Tailscale (ADR-0002). See
-`deploy/akahu-budget-mcp.service` for the systemd unit.
+`deploy/akahu-budget-mcp.service` for the systemd unit, and
+`deploy/phase2-funnel-oauth.md` for the Phase-2 public path (Tailscale Funnel +
+Stytch OAuth).

@@ -1,20 +1,32 @@
 import "dotenv/config";
-import express from "express";
 import cron from "node-cron";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { loadConfig } from "./config.js";
-import { makeContext } from "./context.js";
+import { makeContext, type Actor } from "./context.js";
 import { openAndMigrate } from "./db/index.js";
 import { seedSettingsFromConfig } from "./bootstrap.js";
-import { seedHouseholdFromConfig } from "./household.js";
+import {
+  findMemberByEmail,
+  resolveTailnetDefaultMember,
+  seedHouseholdFromConfig,
+  seedMemberEmailsFromConfig,
+} from "./household.js";
 import { buildAccountJobs, runSync } from "./sync/index.js";
-import { buildMcpServer } from "./mcp.js";
+import { buildMcpApp } from "./http/router.js";
+import { makeAuthorizer } from "./auth/authorize.js";
+import {
+  PROTECTED_RESOURCE_PATH,
+  makeAuthenticateMiddleware,
+  makeResourceMetadataHandler,
+} from "./auth/middleware.js";
+import { makeVerifierFromConfig } from "./auth/verify.js";
 
 /**
- * Phase 1 entry point: an MCP server over Streamable HTTP, reached privately
- * over Tailscale (ADR-0002). No OAuth — the tailnet is the auth. Each POST /mcp
- * is handled statelessly (a fresh server + transport per request), which is
- * ample for a single always-on household deployment.
+ * Entry point. Phase 1: an MCP server over Streamable HTTP, reached privately
+ * over Tailscale (ADR-0002) with no OAuth — the tailnet is the auth. Phase 2
+ * (opt-in via PUBLIC_PORT) binds a second, OAuth-guarded listener that Tailscale
+ * Funnel targets (ADR-0010); with no PUBLIC_PORT only the tailnet listener binds
+ * and V1 is unaffected. Each POST /mcp is handled statelessly (a fresh server +
+ * transport per request), ample for a single always-on household deployment.
  */
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -35,6 +47,7 @@ async function main(): Promise<void> {
 
   seedSettingsFromConfig(ctx, config);
   seededHolder.seeded = seedHouseholdFromConfig(ctx, config);
+  seedMemberEmailsFromConfig(ctx, config);
   const hasConnections = config.connections.length > 0;
 
   // Best-effort sync on boot so the first read isn't empty. Never fatal: the Pi
@@ -62,55 +75,46 @@ async function main(): Promise<void> {
     console.log(`Nightly sync scheduled: ${config.syncCron}`);
   }
 
-  const app = express();
-  app.use(express.json());
+  // --- Tailnet listener (always on, OAuth-free; ADR-0002/0010) -------------
+  // Attribute every write on this path to the configured default Member.
+  const tailnetMemberId = resolveTailnetDefaultMember(ctx, config);
+  const tailnetActor: Actor | undefined =
+    tailnetMemberId !== undefined
+      ? { memberId: tailnetMemberId, source: "tailnet" }
+      : undefined;
 
-  app.get("/healthz", (_req, res) => {
-    res.json({ ok: true });
-  });
-
-  app.post("/mcp", async (req, res) => {
-    const server = buildMcpServer(ctx);
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined, // stateless
-    });
-    res.on("close", () => {
-      void transport.close();
-      void server.close();
-    });
-    try {
-      await server.connect(transport);
-      await transport.handleRequest(req, res, req.body);
-    } catch (err) {
-      console.error("MCP request failed:", err instanceof Error ? err.message : err);
-      if (!res.headersSent) {
-        res.status(500).json({
-          jsonrpc: "2.0",
-          error: { code: -32603, message: "Internal server error" },
-          id: null,
-        });
-      }
-    }
-  });
-
-  // Streamable HTTP GET/DELETE (SSE stream, session teardown) are unused in
-  // stateless mode; reply with Method Not Allowed rather than hanging.
-  const methodNotAllowed = (_req: express.Request, res: express.Response) => {
-    res.status(405).json({
-      jsonrpc: "2.0",
-      error: { code: -32000, message: "Method not allowed." },
-      id: null,
-    });
-  };
-  app.get("/mcp", methodNotAllowed);
-  app.delete("/mcp", methodNotAllowed);
-
-  app.listen(config.port, config.host, () => {
+  const tailnetApp = buildMcpApp(ctx, { resolveActor: () => tailnetActor });
+  tailnetApp.listen(config.port, config.host, () => {
     console.log(
-      `akahu-budget-mcp listening on http://${config.host}:${config.port}/mcp ` +
+      `akahu-budget-mcp (tailnet) listening on http://${config.host}:${config.port}/mcp ` +
         `(read_only=${config.readOnly}, connections=${config.connections.length})`,
     );
   });
+
+  // --- Public listener (opt-in via PUBLIC_PORT; OAuth-guarded; ADR-0010) ----
+  if (config.publicPort !== undefined && config.auth) {
+    const auth = config.auth;
+    const resourceMetadataUrl = `${auth.resource.replace(/\/$/, "")}${PROTECTED_RESOURCE_PATH}`;
+    const authorize = makeAuthorizer({
+      verifyToken: makeVerifierFromConfig(auth),
+      resolveMember: (email) => findMemberByEmail(ctx, email),
+      resourceMetadataUrl,
+    });
+    const publicApp = buildMcpApp(ctx, {
+      authenticate: makeAuthenticateMiddleware(authorize),
+      resolveActor: (req) => req.actor,
+      wellKnown: {
+        path: PROTECTED_RESOURCE_PATH,
+        handler: makeResourceMetadataHandler(auth),
+      },
+    });
+    publicApp.listen(config.publicPort, config.host, () => {
+      console.log(
+        `akahu-budget-mcp (public/oauth) listening on http://${config.host}:${config.publicPort}/mcp ` +
+          `— resource server for ${auth.issuer}`,
+      );
+    });
+  }
 }
 
 main().catch((err) => {
