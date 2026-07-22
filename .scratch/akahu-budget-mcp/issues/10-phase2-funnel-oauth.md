@@ -4,7 +4,7 @@
 
 **Blocked by:** 09.
 
-**Status:** ready-for-agent
+**Status:** shipped — implemented on `main` (commit 97bc3b8).
 
 - [x] **Two-listener topology (ADR-0010):** a shared `buildMcpRouter(ctx, { authenticate? })` factory mounts `/mcp` + `/healthz` + the GET/DELETE 405s; the process binds a **tailnet listener** (`PORT`, no auth, existing behaviour) and — only when `PUBLIC_PORT` is set — a **public listener** (`PUBLIC_PORT`, auth enforced). Phase-2 is opt-in: no `PUBLIC_PORT` ⇒ only the tailnet listener binds and V1 is unaffected.
 - [x] **Public exposure:** `tailscale funnel` targets the **public port only**, giving a stable HTTPS URL; `tailscale serve` keeps the tailnet MagicDNS path for the Claude Member. Documented in the deploy doc (ops, ~no app code beyond the second `listen`).
