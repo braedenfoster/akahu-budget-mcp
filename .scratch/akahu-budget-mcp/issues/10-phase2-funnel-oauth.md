@@ -1,13 +1,15 @@
 # 10 — Phase 2: public exposure via Tailscale Funnel + OAuth
 
-**What to build:** The `/mcp` endpoint is reachable from the public internet so OpenAI's servers can call it, protected by OAuth 2.1 that maps an authenticated email to a Member. This is the fenced-off Phase-2 slice — nothing in V1 depends on it. See ADR-0002.
+**What to build:** The `/mcp` endpoint is reachable from the public internet so OpenAI's servers can call it, protected by OAuth 2.1 where **Stytch is the Authorization Server and our server is a token-validating Resource Server** (no auth-server endpoints of our own). It maps an authenticated email to a Member and rejects unknown emails. This is the fenced-off Phase-2 slice — nothing in V1 depends on it. See ADR-0002 and ADR-0010.
 
 **Blocked by:** 09.
 
 **Status:** ready-for-agent
 
-- [ ] `/mcp` exposed publicly via Tailscale Funnel (or Cloudflare Tunnel) with a stable HTTPS URL; the tailnet path remains for the Claude Member.
-- [ ] OAuth 2.1 (auth-code + PKCE, dynamic client registration) via a managed IdP (Auth0/Stytch/Clerk); the server validates the IdP's token and maps **email → Member**.
-- [ ] Auth is enforced on the public path without changing the transport (already Streamable HTTP) or any tool contract.
-- [ ] Unauthenticated requests are rejected; an authenticated request is attributed to the correct Member in the audit log.
-- [ ] Tests cover token validation and email→Member mapping (mocked IdP); no secrets logged.
+- [ ] **Two-listener topology (ADR-0010):** a shared `buildMcpRouter(ctx, { authenticate? })` factory mounts `/mcp` + `/healthz` + the GET/DELETE 405s; the process binds a **tailnet listener** (`PORT`, no auth, existing behaviour) and — only when `PUBLIC_PORT` is set — a **public listener** (`PUBLIC_PORT`, auth enforced). Phase-2 is opt-in: no `PUBLIC_PORT` ⇒ only the tailnet listener binds and V1 is unaffected.
+- [ ] **Public exposure:** `tailscale funnel` targets the **public port only**, giving a stable HTTPS URL; `tailscale serve` keeps the tailnet MagicDNS path for the Claude Member. Documented in the deploy doc (ops, ~no app code beyond the second `listen`).
+- [ ] **Resource-Server OAuth (Stytch):** serve `/.well-known/oauth-protected-resource` (RFC 9728) on the public listener pointing at Stytch + naming our resource; an `authenticate` middleware extracts the Bearer token, validates the JWT against Stytch's **JWKS** (cached) checking `iss`/`aud`/`exp`, and pulls the email claim. Missing/invalid token ⇒ **401** with `WWW-Authenticate: Bearer resource_metadata="…"`. No `/authorize`, `/token`, or DCR implemented here — Stytch owns those. (`jose` is the one new dependency.)
+- [ ] **email → Member allowlist:** `members.email` (already in schema) is populated from config (`AUTH_MEMBER_EMAILS`, `Name:email` pairs) at seed time; lookup is case-insensitive. A valid token whose email maps to **no Member ⇒ 403** — the email→Member table *is* the allowlist. `TAILNET_DEFAULT_MEMBER` names the Member attributed to the tailnet path (defaults to first seeded member).
+- [ ] **Actor attribution:** `AppContext` gains `actor?: { memberId, source: 'tailnet' | 'oauth' }` via a `withActor(ctx, actor)` clone; the `/mcp` handler builds the MCP server with the request-scoped context. Migration adds nullable `actor_member_id` (FK → members) + `actor_source` to `audit_log`; `withWrite` stamps them. Transport and every tool contract stay unchanged; read-only refusal still logs nothing.
+- [ ] **Fail-fast config:** `PUBLIC_PORT` set but Stytch config (`STYTCH_PROJECT_ID` + issuer/audience) missing ⇒ error at startup. No token or secret ever logged.
+- [ ] **Seam 1 tests (no live IdP):** sign test JWTs with a local key + mock JWKS — valid ⇒ member; bad-signature / expired / wrong-audience ⇒ 401; unknown email ⇒ 403; case-insensitive match. Audit: an oauth-actor write records `actor_member_id` + `source='oauth'`; a tailnet-actor write records the default Member + `source='tailnet'`. Assert no token/secret appears in any log line.
