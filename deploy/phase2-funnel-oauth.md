@@ -57,15 +57,27 @@ Connected App `Budget-pi` (first_party_public), DCR **enabled**.
 1. **API Keys** → copy the **public token** (publishable) for the auth page build.
 2. Create an **Organization** and add each household member as a **Member**, using
    the exact email each will sign in with. These emails must match
-   `AUTH_MEMBER_EMAILS` (below), case-insensitive.
-3. **Connected Apps → Settings → access-token template** (`{}` field): set to
-   ```json
-   { "email": "{{ member.email_address }}" }
+   `AUTH_MEMBER_EMAILS` (below), case-insensitive. (Discovery login *requires* the
+   sign-in email to already be a Member — there is no self-signup.)
+3. **Frontend SDK → Configuration:** enable the SDK and add the auth-page origin
+   `https://pixelsprout-1.tail8d66c9.ts.net` to **Authorized domains**. Without
+   this the login form errors with "website has not been registered as an allowed
+   domain". Confirm **Email OTP** is an enabled SDK auth method.
+4. **Connected Apps → Settings → access-token template** (`{}` field): set to
    ```
-   so the access token carries a top-level `email` claim the RS keys off.
-4. **Login method:** Email OTP (the `auth-page` is built for this — no redirect
+   { "email": {{ member.email_address }} }
+   ```
+   ⚠️ The variable is **UNQUOTED** — Stytch auto-quotes the substituted value, and
+   the dashboard rejects `"{{ … }}"` with "Variables cannot be inside quotes". This
+   puts a top-level `email` claim in the access token, which the RS keys off.
+   ⚠️⚠️ **This template is snapshotted onto each DCR client AT CREATION TIME.** If a
+   client (ChatGPT/Claude connector) registered *before* the template was saved,
+   its tokens will never carry `email` no matter how often you reconnect — you must
+   **delete the connector and re-add it** so a fresh DCR client inherits the
+   template. Set/verify this template BEFORE first connecting a client.
+5. **Login method:** Email OTP (the `auth-page` is built for this — no redirect
    URL to register).
-5. **Authorization URL** (set only AFTER the auth page is deployed and reachable):
+6. **Authorization URL** (set only AFTER the auth page is deployed and reachable):
    `https://pixelsprout-1.tail8d66c9.ts.net/oauth/authorize`.
    Until this is set, `/.well-known/oauth-authorization-server` returns 400 —
    expected.
@@ -184,17 +196,20 @@ Email OTP, and confirm a tool call succeeds and is attributed to your Member.
 5. A valid token whose email maps to no Member ⇒ **403**. On success the request
    is attributed to the resolved Member (`actor_source='oauth'` in `audit_log`).
 
-## OPEN RISK — resolve with the first real token
+## RESOLVED with the first real token (23 Jul 2026, ChatGPT dev-mode connector)
 
-Stytch's docs contradict themselves on the access-token `aud`: prose says
-**client_id**, the example shows **`["PROJECT_ID"]`**. Our RS does a static `aud`
-check against `AUTH_AUDIENCE`.
+The research's open questions are now answered by a live token:
 
-- If `aud = project_id` → `AUTH_AUDIENCE=<project_id>` (as above), done.
-- If `aud = client_id` → DCR client IDs are dynamic, so a static check can't work
-  → small RS tweak needed (relax/adjust the `aud` check; `iss` + signature +
-  email allowlist still protect). Diagnose once a real token exists.
+- **`aud` = `["<project_id>"]`** (NOT the client_id). The static `AUTH_AUDIENCE=<project_id>`
+  check is correct — no RS change needed. Sample verified token:
+  `{"aud":["project-test-3ccd69c4-…"],"email":"…@gmail.com","iss":"https://fearless-utensil-8259.customers.stytch.dev","client_id":"connected-app-test-…","sub":"member-test-…","scope":"profile phone openid email offline_access","https://stytch.com/organization":{…}}`.
+- **`{{ member.email_address }}` resolves** and lands as a top-level `email` claim —
+  but ONLY once the template is saved (unquoted) AND the client is (re-)registered
+  after saving it (see dashboard step 4). A missing `email` claim → RS 401 →
+  ChatGPT shows "Authentication succeeded, action discovery failed".
+- Stytch **accepts-and-ignores** the client's `resource` param (aud stays project_id).
 
-Also confirm with the first token: `{{ member.email_address }}` actually resolves
-in the *access-token* template, and Stytch accepts-and-ignores the client's
-`resource` param.
+Client used: ChatGPT (Plus/Pro personal account) → Settings → Apps & Connectors →
+Developer mode → new plugin, Server URL `…/mcp`, Auth = OAuth (endpoints
+auto-discovered). Note: an **org-managed** Claude/ChatGPT plan usually blocks
+custom connectors via admin policy — use a personal account.
