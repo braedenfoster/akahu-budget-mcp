@@ -1,0 +1,27 @@
+# systemd unit for the Stytch B2B OAuth consent page (Phase 2, ADR-0010).
+# Serves the built auth-page/dist/ on 127.0.0.1:8088; Tailscale Funnel
+# path-routes /oauth here. Only needed when the public OAuth path is enabled.
+# Install:
+#   sudo cp deploy/auth-page.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now auth-page
+# Logs: journalctl -u auth-page -f
+
+[Unit]
+Description=Budget Stytch OAuth consent page (static server)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust to the deploy user and checkout path on the Pi (e.g. pixelsprout).
+User=pi
+WorkingDirectory=/home/pi/akahu-budget-mcp/auth-page
+Environment=HOST=127.0.0.1
+Environment=PORT=8088
+ExecStart=/usr/bin/node serve.mjs
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
