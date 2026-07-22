@@ -1,24 +1,31 @@
 # Phase 2: public exposure via Tailscale Funnel + Stytch OAuth
 
-Phase 2 makes `/mcp` reachable from the public internet so the Claude mobile/web
-app (and later ChatGPT) can call it (ADR-0002), guarded by OAuth 2.1 with
-**Stytch as the Authorization Server and this app as a token-validating Resource
-Server** (ADR-0010). It is **opt-in**: with no `PUBLIC_PORT` set, only the
-OAuth-free tailnet listener binds and the Phase-1 (Claude Desktop) path is
-unchanged.
+Phase 2 makes `/mcp` reachable from the public internet so ChatGPT (and remote
+Claude) can call it (ADR-0002), guarded by OAuth 2.1 with **Stytch as the
+Authorization Server and this app as a token-validating Resource Server**
+(ADR-0010). It is **opt-in**: with no `PUBLIC_PORT` set, only the OAuth-free
+tailnet listener binds and the Phase-1 (Claude Desktop) path is unchanged.
+
+Substitute your own values for the placeholders:
+
+| Placeholder | Meaning |
+|---|---|
+| `<your-host>.<your-tailnet>.ts.net` | your Tailscale node's MagicDNS name (`tailscale status`) |
+| `<slug>.customers.stytch.dev` | your Stytch project domain |
+| `<your-project-id>` | your Stytch project id (`project-test-…` / `project-live-…`) |
+| `<user>@<host>` | ssh target for your deploy host |
 
 Grounded in the cited research: `docs/research/stytch-connected-apps-mcp.md`.
 Two facts from that research shape this doc and differ from the naive setup:
 
-1. **Stytch does not host the OAuth consent page.** We must host a page that
+1. **Stytch does not host the OAuth consent page.** You must host a page that
    mounts Stytch's `<B2BIdentityProvider>` and register its URL as the Stytch
    "Authorization URL". That page is the `auth-page/` package in this repo. Until
    the Authorization URL is set, Stytch's `/.well-known/oauth-authorization-server`
    returns HTTP 400 and no client can complete the flow.
 2. **The access-token `aud` is the Stytch `project_id`**, not the MCP URL. So
-   `AUTH_AUDIENCE=<project_id>`, while `AUTH_RESOURCE` (the RFC 9728 resource id)
-   is the public tailnet URL. (See the OPEN RISK at the bottom — confirm with the
-   first real token.)
+   `AUTH_AUDIENCE=<your-project-id>`, while `AUTH_RESOURCE` (the RFC 9728 resource
+   id) is the public host origin.
 
 ## Topology: two app listeners + one static page, path-routed on 443
 
@@ -26,7 +33,7 @@ The MCP server binds two HTTP listeners; the auth page is a separate static
 server. Funnel on **443** path-routes between them:
 
 ```
-https://pixelsprout-1.tail8d66c9.ts.net
+https://<your-host>.<your-tailnet>.ts.net
    ├─ /mcp  + /.well-known/oauth-protected-resource + /healthz  → MCP public listener 127.0.0.1:3443 (OAuth)
    └─ /oauth/authorize (+ SPA assets)                            → static Stytch auth page 127.0.0.1:8088
 ```
@@ -34,7 +41,7 @@ https://pixelsprout-1.tail8d66c9.ts.net
 | Component        | Port (localhost) | Auth                         | Reached by |
 |------------------|------------------|------------------------------|------------|
 | MCP tailnet      | `PORT` (3000)    | none — WireGuard is the auth | Claude Desktop, via `tailscale serve` / MagicDNS |
-| MCP public       | `PUBLIC_PORT` (3443) | OAuth 2.1 (Stytch JWT)   | Claude mobile/web, ChatGPT, via Funnel `/mcp` |
+| MCP public       | `PUBLIC_PORT` (3443) | OAuth 2.1 (Stytch JWT)   | ChatGPT / remote Claude, via Funnel `/mcp` |
 | Auth page        | 8088             | Stytch B2B login (Email OTP) | The OAuth consent step, via Funnel `/oauth` |
 
 The security boundary is **network-enforced**: Funnel forwards only to these
@@ -44,15 +51,16 @@ middleware has a bug.
 ## Prerequisites (one-time)
 
 - Tailnet HTTPS certs **enabled** in the Tailscale admin console (DNS page).
-  Funnel on 443 needs a cert. (This was the Phase-1 blocker; now enabled.)
-- Pi facts: `ssh pixelsprout@192.168.68.115`, repo at
-  `/home/pixelsprout/akahu-budget-mcp`, Node 22 + pnpm 11. See memory
-  `pi-deployment`.
+  Funnel on 443 needs a cert.
+- **Funnel enabled** for your tailnet (the first `tailscale funnel` command prints
+  an admin-console URL to enable it if not).
+- A deploy host reachable at `<user>@<host>` with the repo checked out, Node 22 +
+  pnpm installed, and a `.env` alongside it.
 
-## Stytch dashboard setup (Authorization Server) — user steps
+## Stytch dashboard setup (Authorization Server)
 
-Project: **B2B**, domain `https://fearless-utensil-8259.customers.stytch.dev`,
-Connected App `Budget-pi` (first_party_public), DCR **enabled**.
+Project type: **B2B**. Create a Connected App (first-party public) with DCR
+**enabled**.
 
 1. **API Keys** → copy the **public token** (publishable) for the auth page build.
 2. Create an **Organization** and add each household member as a **Member**, using
@@ -60,7 +68,7 @@ Connected App `Budget-pi` (first_party_public), DCR **enabled**.
    `AUTH_MEMBER_EMAILS` (below), case-insensitive. (Discovery login *requires* the
    sign-in email to already be a Member — there is no self-signup.)
 3. **Frontend SDK → Configuration:** enable the SDK and add the auth-page origin
-   `https://pixelsprout-1.tail8d66c9.ts.net` to **Authorized domains**. Without
+   `https://<your-host>.<your-tailnet>.ts.net` to **Authorized domains**. Without
    this the login form errors with "website has not been registered as an allowed
    domain". Confirm **Email OTP** is an enabled SDK auth method.
 4. **Connected Apps → Settings → access-token template** (`{}` field): set to
@@ -78,23 +86,24 @@ Connected App `Budget-pi` (first_party_public), DCR **enabled**.
 5. **Login method:** Email OTP (the `auth-page` is built for this — no redirect
    URL to register).
 6. **Authorization URL** (set only AFTER the auth page is deployed and reachable):
-   `https://pixelsprout-1.tail8d66c9.ts.net/oauth/authorize`.
+   `https://<your-host>.<your-tailnet>.ts.net/oauth/authorize`.
    Until this is set, `/.well-known/oauth-authorization-server` returns 400 —
    expected.
 
 ## Build & deploy the auth page
 
-The Pi has 1 GB RAM — **build on the Mac**, ship the static `dist/`.
+Build on a machine with more RAM than a small host (a 1 GB Pi struggles) — **build
+locally, ship the static `dist/`.**
 
 ```bash
-# On the Mac, in the repo:
+# On your build machine, in the repo:
 cp auth-page/.env.example auth-page/.env
 # edit auth-page/.env → VITE_STYTCH_PUBLIC_TOKEN=<public token from step 1>
 pnpm --filter auth-page build          # → auth-page/dist/
 
-# Ship dist/ + the static server to the Pi (dist/ is gitignored, so rsync it):
-rsync -av auth-page/dist/ pixelsprout@192.168.68.115:/home/pixelsprout/akahu-budget-mcp/auth-page/dist/
-rsync -av auth-page/serve.mjs pixelsprout@192.168.68.115:/home/pixelsprout/akahu-budget-mcp/auth-page/serve.mjs
+# Ship dist/ + the static server to the host (dist/ is gitignored, so rsync it):
+rsync -av auth-page/dist/    <user>@<host>:~/akahu-budget-mcp/auth-page/dist/
+rsync -av auth-page/serve.mjs <user>@<host>:~/akahu-budget-mcp/auth-page/serve.mjs
 ```
 
 The app is built with Vite `base: '/oauth/'`, so `index.html` references its
@@ -109,8 +118,8 @@ falls back to `index.html` for client-side routes (so `/oauth/authorize`
 resolves), and refuses path traversal. Run it under systemd:
 
 ```bash
-# On the Pi (edit User/paths in the unit to pixelsprout first):
-sudo cp /home/pixelsprout/akahu-budget-mcp/deploy/auth-page.service /etc/systemd/system/
+# On the host (edit User= and paths in the unit to match your deploy user first):
+sudo cp ~/akahu-budget-mcp/deploy/auth-page.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now auth-page
 curl -sI http://127.0.0.1:8088/oauth/authorize   # → 200, text/html
@@ -118,25 +127,25 @@ curl -sI http://127.0.0.1:8088/oauth/authorize   # → 200, text/html
 
 ## MCP server config
 
-Set these in the Pi's `.env` (see `.env.example`) alongside the Phase-1 vars,
+Set these in the host's `.env` (see `.env.example`) alongside the Phase-1 vars,
 then rebuild + restart the MCP server:
 
 ```bash
 PUBLIC_PORT=3443
-STYTCH_PROJECT_ID=project-test-3ccd69c4-a4f2-4f78-9a32-a45a91b4e3bf
-AUTH_ISSUER=https://fearless-utensil-8259.customers.stytch.dev
-STYTCH_JWKS_URL=https://fearless-utensil-8259.customers.stytch.dev/.well-known/jwks.json
-AUTH_AUDIENCE=project-test-3ccd69c4-a4f2-4f78-9a32-a45a91b4e3bf   # = project_id, NOT the MCP URL
-AUTH_RESOURCE=https://pixelsprout-1.tail8d66c9.ts.net            # RFC 9728 resource id — BARE ORIGIN (server appends /.well-known/...)
+STYTCH_PROJECT_ID=<your-project-id>
+AUTH_ISSUER=https://<slug>.customers.stytch.dev
+STYTCH_JWKS_URL=https://<slug>.customers.stytch.dev/.well-known/jwks.json
+AUTH_AUDIENCE=<your-project-id>                       # = project_id, NOT the MCP URL
+AUTH_RESOURCE=https://<your-host>.<your-tailnet>.ts.net   # RFC 9728 resource id — BARE ORIGIN (server appends /.well-known/...)
 AUTH_EMAIL_CLAIM=email
 # Names MUST match an existing seeded Member exactly (= AKAHU_MEMBER_NAME_*),
 # else a new empty Member is created and the OAuth user won't see the data.
-AUTH_MEMBER_EMAILS=Braeden Foster:braedenleefoster@gmail.com     # add ",Partner Name:her@email" as needed
-TAILNET_DEFAULT_MEMBER=Braeden Foster
+AUTH_MEMBER_EMAILS=Alex:alex@example.com             # add ",Sam:sam@example.com" as needed
+TAILNET_DEFAULT_MEMBER=Alex
 ```
 
 ```bash
-# On the Pi:
+# On the host:
 git pull && pnpm install && pnpm build
 sudo systemctl restart akahu-budget-mcp
 ```
@@ -165,21 +174,21 @@ sudo tailscale funnel status
 
 ```bash
 # Metadata is public (no token) → PRM JSON pointing at Stytch:
-curl https://pixelsprout-1.tail8d66c9.ts.net/.well-known/oauth-protected-resource
+curl https://<your-host>.<your-tailnet>.ts.net/.well-known/oauth-protected-resource
 
 # No token ⇒ 401 + WWW-Authenticate challenge:
-curl -i -X POST https://pixelsprout-1.tail8d66c9.ts.net/mcp
+curl -i -X POST https://<your-host>.<your-tailnet>.ts.net/mcp
 
 # The consent page loads:
-curl -sI https://pixelsprout-1.tail8d66c9.ts.net/oauth/authorize   # → 200 text/html
+curl -sI https://<your-host>.<your-tailnet>.ts.net/oauth/authorize   # → 200 text/html
 
 # Once the Stytch Authorization URL is set, the AS metadata clears the 400:
-curl https://fearless-utensil-8259.customers.stytch.dev/.well-known/oauth-authorization-server
+curl https://<slug>.customers.stytch.dev/.well-known/oauth-authorization-server
 ```
 
-Then the real end-to-end check: add the server in the Claude mobile app as a
-custom connector (`https://pixelsprout-1.tail8d66c9.ts.net/mcp`), sign in with
-Email OTP, and confirm a tool call succeeds and is attributed to your Member.
+Then the real end-to-end check: add the server as a custom connector
+(`https://<your-host>.<your-tailnet>.ts.net/mcp`), sign in with Email OTP, and
+confirm a tool call succeeds and is attributed to your Member.
 
 ## How a request is authorized
 
@@ -188,7 +197,7 @@ Email OTP, and confirm a tool call succeeds and is attributed to your Member.
 2. A missing/invalid token ⇒ **401** with
    `WWW-Authenticate: Bearer resource_metadata="<metadata URL>"`.
 3. The client discovers Stytch, (DCR-)registers, runs PKCE authorize — Stytch
-   redirects the user to our `/oauth/authorize` page, they log in (Email OTP) and
+   redirects the user to the `/oauth/authorize` page, they log in (Email OTP) and
    consent, and Stytch returns an auth code → access token (JWT).
 4. Each `POST /mcp` carries `Authorization: Bearer <jwt>`. The middleware
    validates it against Stytch's JWKS (cached), checking `iss` / `aud` / `exp`,
@@ -196,20 +205,42 @@ Email OTP, and confirm a tool call succeeds and is attributed to your Member.
 5. A valid token whose email maps to no Member ⇒ **403**. On success the request
    is attributed to the resolved Member (`actor_source='oauth'` in `audit_log`).
 
-## RESOLVED with the first real token (23 Jul 2026, ChatGPT dev-mode connector)
+## Verified findings (from a live token)
 
-The research's open questions are now answered by a live token:
+Confirmed against a real ChatGPT dev-mode connector token:
 
-- **`aud` = `["<project_id>"]`** (NOT the client_id). The static `AUTH_AUDIENCE=<project_id>`
-  check is correct — no RS change needed. Sample verified token:
-  `{"aud":["project-test-3ccd69c4-…"],"email":"…@gmail.com","iss":"https://fearless-utensil-8259.customers.stytch.dev","client_id":"connected-app-test-…","sub":"member-test-…","scope":"profile phone openid email offline_access","https://stytch.com/organization":{…}}`.
+- **`aud` = `["<your-project-id>"]`** (NOT the client_id). The static
+  `AUTH_AUDIENCE=<your-project-id>` check is correct — no RS change needed. Shape of
+  a verified token:
+  ```json
+  {
+    "aud": ["<your-project-id>"],
+    "email": "alex@example.com",
+    "iss": "https://<slug>.customers.stytch.dev",
+    "client_id": "connected-app-…",
+    "sub": "member-…",
+    "scope": "profile phone openid email offline_access",
+    "https://stytch.com/organization": { "organization_id": "organization-…", "slug": "…" }
+  }
+  ```
 - **`{{ member.email_address }}` resolves** and lands as a top-level `email` claim —
   but ONLY once the template is saved (unquoted) AND the client is (re-)registered
   after saving it (see dashboard step 4). A missing `email` claim → RS 401 →
   ChatGPT shows "Authentication succeeded, action discovery failed".
 - Stytch **accepts-and-ignores** the client's `resource` param (aud stays project_id).
 
-Client used: ChatGPT (Plus/Pro personal account) → Settings → Apps & Connectors →
-Developer mode → new plugin, Server URL `…/mcp`, Auth = OAuth (endpoints
-auto-discovered). Note: an **org-managed** Claude/ChatGPT plan usually blocks
-custom connectors via admin policy — use a personal account.
+## Client notes
+
+- **ChatGPT** (Plus/Pro **personal** account): Settings → Apps & Connectors →
+  Developer mode → new connector, Server URL `…/mcp`, Auth = OAuth (endpoints
+  auto-discovered). Tool-calling is currently **web-only** — mobile shows the tools
+  but can't invoke them.
+- **Org-managed Claude/ChatGPT plans usually block custom connectors** via admin
+  policy — use a personal account.
+
+## Debugging
+
+The RS logs no per-request lines. To inspect a live token's claims, temporarily add
+`decodeJwt(token)` logging in `src/auth/verify.ts`, `pnpm build`, restart, reproduce,
+then `git checkout src/auth/verify.ts` to revert. A missing `email` claim (401) vs an
+unknown email (403) vs an `aud`/`iss` mismatch (401) each point at a different fix.

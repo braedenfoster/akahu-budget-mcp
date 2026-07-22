@@ -14,7 +14,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-# Adjust to the deploy user and checkout path on the Pi (e.g. pixelsprout).
+# Adjust to the deploy user and checkout path on your host.
 User=pi
 WorkingDirectory=/home/pi/akahu-budget-mcp/auth-page
 Environment=HOST=127.0.0.1
