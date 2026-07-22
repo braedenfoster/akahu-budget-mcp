@@ -21,8 +21,8 @@ complete the flow. This design builds that page.
   from the server package).
 - **Hosting: on the Pi.** Built on the Mac (`dist/`), shipped to the Pi, served by a
   tiny static server on `127.0.0.1:8088`; Funnel path-routes `/oauth` → it.
-- **Stytch project: B2B** (existing), project `project-test-3ccd69c4-...`,
-  domain `https://fearless-utensil-8259.customers.stytch.dev`.
+- **Stytch project: B2B** (existing), project `<your-project-id>`,
+  domain `https://<slug>.customers.stytch.dev`.
 
 ## Architecture
 
@@ -66,7 +66,7 @@ complete the flow. This design builds that page.
   on **443** (`/oauth` → :8088, everything else → the MCP public port), and the
   research-correct config (`aud = project_id`, `AUTH_RESOURCE = tailnet URL`).
 - Update root `.env.example` Phase-2 block to match (`AUTH_AUDIENCE=<project_id>`,
-  `AUTH_RESOURCE=https://pixelsprout-1...ts.net`, `AUTH_EMAIL_CLAIM=email`,
+  `AUTH_RESOURCE=https://<your-host>.<your-tailnet>.ts.net`, `AUTH_EMAIL_CLAIM=email`,
   `STYTCH_JWKS_URL`, `AUTH_ISSUER` = project domain).
 
 ## Testing
@@ -86,7 +86,7 @@ No mocking of Stytch's React components (no value — it would test the mock).
 
 - Stytch dashboard: Org + Members, access-token template
   `{ "email": "{{ member.email_address }}" }`, Authorization URL
-  `https://pixelsprout-1.tail8d66c9.ts.net/oauth/authorize`.
+  `https://<your-host>.<your-tailnet>.ts.net/oauth/authorize`.
 - Actual Pi deploy, Funnel commands, real mobile sign-in.
 - **Open risk:** `aud = project_id` vs `client_id` — resolves only with a real token
   (see handoff). RS currently does a static `aud == project_id` check.

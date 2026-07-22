@@ -2,7 +2,7 @@
 
 Research date: 2026-07-22. Sources are **primary only**: Stytch docs (`stytch.com/docs`), the MCP authorization spec (`modelcontextprotocol.io`), and the relevant RFCs. Blog posts were used only to locate primary docs. Where a claim could only be partially verified from docs, it is flagged as **needs live-token test**.
 
-Our setup: self-hosted TypeScript MCP server acting **only** as an OAuth 2.1 token-validating Resource Server (RS). Stytch is the Authorization Server (AS). Project domain (Test env): `https://fearless-utensil-8259.customers.stytch.dev`. Public MCP endpoint: `https://pixelsprout-1.tail8d66c9.ts.net:8443/mcp`. Currently a **B2B** project.
+Our setup: self-hosted TypeScript MCP server acting **only** as an OAuth 2.1 token-validating Resource Server (RS). Stytch is the Authorization Server (AS). Project domain (Test env): `https://<slug>.customers.stytch.dev`. Public MCP endpoint: `https://<your-host>.<your-tailnet>.ts.net:8443/mcp`. Currently a **B2B** project.
 
 ---
 
@@ -69,7 +69,7 @@ Source: https://stytch.com/docs/b2b/guides/migrations/migrating-from-consumer-to
   Source: https://stytch.com/docs/api/connected-app-access-token
 - JWKS: *"JWKS can be used to validate your Connected App's access tokens and ID tokens"*; keys rotate ~every 6 months with a 1-month overlap.
   Source: https://stytch.com/docs/api/connected-app-jwks
-- **Live-verified on our project:** `GET https://fearless-utensil-8259.customers.stytch.dev/.well-known/jwks.json` returns a JWKS with `kty: RSA`, `alg: RS256`, `use: sig`, `kid: jwk-test-43223b08-3de6-4af7-aa02-babbcba356c5`. (Fetched 2026-07-22.)
+- **Live-verified on our project:** `GET https://<slug>.customers.stytch.dev/.well-known/jwks.json` returns a JWKS with `kty: RSA`, `alg: RS256`, `use: sig`, `kid: jwk-test-<kid>`. (Fetched 2026-07-22.)
 
 ---
 
@@ -102,11 +102,11 @@ This makes the access token carry a top-level `email` claim → our RS reads `AU
 
 - **`iss` = `https://<project-domain>`.** Access-token object example shows `"iss": "https://${projectDomain}"`.
   Source: https://stytch.com/docs/api/connected-app-access-token
-  → For us: **`iss = https://fearless-utensil-8259.customers.stytch.dev`**.
+  → For us: **`iss = https://<slug>.customers.stytch.dev`**.
   (Note: the object-doc prose also says the default issuer is "your project's Custom Domain, or `stytch.com/${projectId}`" — but the concrete example and the FastMCP MCP guide both use the project domain. Since we have no custom domain, the `customers.stytch.dev` project domain is the issuer. **Confirm the exact string once `/.well-known/oauth-authorization-server` is live** — expect no trailing path.)
 - **`jwks_uri` = `<project-domain>/.well-known/jwks.json`.** FastMCP example: `jwks_uri = f"{STYTCH_DOMAIN}/.well-known/jwks.json"`.
   Source: https://stytch.com/docs/guides/connected-apps/mcp-server-overview
-  → For us: **`https://fearless-utensil-8259.customers.stytch.dev/.well-known/jwks.json`** (live-verified, §3).
+  → For us: **`https://<slug>.customers.stytch.dev/.well-known/jwks.json`** (live-verified, §3).
 
 The RFC 8414 AS-metadata doc (`/.well-known/oauth-authorization-server`) will expose `issuer`, `authorization_endpoint`, `token_endpoint`, `registration_endpoint`, `jwks_uri` once the Authorization URL is set. It currently returns **HTTP 400** on our project (same root cause as `/.well-known/openid-configuration`, also 400), consistent with the blocker.
 
@@ -165,22 +165,22 @@ Assuming we **stay on B2B** (recommended).
 
 | Env var | Value | Notes |
 |---|---|---|
-| `AUTH_ISSUER` | `https://fearless-utensil-8259.customers.stytch.dev` | = `iss` (`https://<project-domain>`). Confirm exact string once AS metadata is live. |
-| `STYTCH_JWKS_URL` | `https://fearless-utensil-8259.customers.stytch.dev/.well-known/jwks.json` | Live-verified, RS256. |
+| `AUTH_ISSUER` | `https://<slug>.customers.stytch.dev` | = `iss` (`https://<project-domain>`). Confirm exact string once AS metadata is live. |
+| `STYTCH_JWKS_URL` | `https://<slug>.customers.stytch.dev/.well-known/jwks.json` | Live-verified, RS256. |
 | `AUTH_AUDIENCE` | `<STYTCH_PROJECT_ID>` (e.g. `project-test-xxxxxxxx-...`) | **project_id, NOT the MCP URL.** `aud` is an array — accept if project_id ∈ `aud`. |
-| `AUTH_RESOURCE` | `https://pixelsprout-1.tail8d66c9.ts.net:8443/mcp` | Goes in our RFC 9728 PRM `resource` field and is what clients send as `resource`. Does **not** appear in `aud`. |
+| `AUTH_RESOURCE` | `https://<your-host>.<your-tailnet>.ts.net:8443/mcp` | Goes in our RFC 9728 PRM `resource` field and is what clients send as `resource`. Does **not** appear in `aud`. |
 | `AUTH_EMAIL_CLAIM` | `email` | Must match the claim name we define in the access-token template below. |
 | `STYTCH_PROJECT_ID` | `<from dashboard → Project settings>` | Also the `AUTH_AUDIENCE` value. |
 
 **PRM document our RS serves at `/.well-known/oauth-protected-resource`:**
 ```json
 {
-  "resource": "https://pixelsprout-1.tail8d66c9.ts.net:8443/mcp",
-  "authorization_servers": ["https://fearless-utensil-8259.customers.stytch.dev"],
+  "resource": "https://<your-host>.<your-tailnet>.ts.net:8443/mcp",
+  "authorization_servers": ["https://<slug>.customers.stytch.dev"],
   "scopes_supported": ["openid", "email", "profile"]
 }
 ```
-Also return `401` + `WWW-Authenticate: Bearer resource_metadata="https://pixelsprout-1.tail8d66c9.ts.net:8443/.well-known/oauth-protected-resource"` on unauthenticated requests.
+Also return `401` + `WWW-Authenticate: Bearer resource_metadata="https://<your-host>.<your-tailnet>.ts.net:8443/.well-known/oauth-protected-resource"` on unauthenticated requests.
 
 **Stytch dashboard → Connected Apps → Settings:**
 - **Authorization URL:** URL of a page in a small web app you host that mounts `<B2BIdentityProvider />` behind a login guard, e.g. `https://<your-app-host>/oauth/authorize`. (This clears the `authorization_endpoint_not_configured_for_project` 400.)
@@ -197,7 +197,7 @@ Also return `401` + `WWW-Authenticate: Bearer resource_metadata="https://pixelsp
 ## Open questions — resolvable only by testing with a real token / live metadata
 
 1. **Email in the access token:** confirm `{{ member.email_address }}` in the Connected-App *access-token* template actually lands as a claim in the **access token** (docs enumerate this variable for session templates; the access-token template is the same engine but not separately enumerated).
-2. **Exact `iss` string:** confirm `https://fearless-utensil-8259.customers.stytch.dev` with no trailing path once `/.well-known/oauth-authorization-server` returns 200.
+2. **Exact `iss` string:** confirm `https://<slug>.customers.stytch.dev` with no trailing path once `/.well-known/oauth-authorization-server` returns 200.
 3. **`aud` value:** confirm it is `["<project_id>"]` for the authorization_code (user) flow, reconciling the object-doc's "client_id" prose vs its `["PROJECT_ID"]` example.
 4. **RFC 8707 `resource` param handling:** confirm Stytch *accepts and ignores* the client's `resource` param (does not reject), and that `aud` stays = project_id.
 5. **Public-client token auth:** confirm `token_endpoint_auth_methods_supported` includes `"none"` and that refresh-token rotation is on (metadata currently 400).
@@ -224,4 +224,4 @@ Also return `401` + `WWW-Authenticate: Bearer resource_metadata="https://pixelsp
 - RFC 8707 Resource Indicators: https://www.rfc-editor.org/rfc/rfc8707.html
 - RFC 9728 Protected Resource Metadata: https://datatracker.ietf.org/doc/html/rfc9728
 - RFC 8414 AS Metadata: https://datatracker.ietf.org/doc/html/rfc8414
-- Live (fetched 2026-07-22): `https://fearless-utensil-8259.customers.stytch.dev/.well-known/jwks.json` (200, RS256); `/.well-known/oauth-authorization-server` and `/.well-known/openid-configuration` (both 400 pre-config).
+- Live (fetched 2026-07-22): `https://<slug>.customers.stytch.dev/.well-known/jwks.json` (200, RS256); `/.well-known/oauth-authorization-server` and `/.well-known/openid-configuration` (both 400 pre-config).
