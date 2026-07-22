@@ -117,8 +117,10 @@ STYTCH_JWKS_URL=https://fearless-utensil-8259.customers.stytch.dev/.well-known/j
 AUTH_AUDIENCE=project-test-3ccd69c4-a4f2-4f78-9a32-a45a91b4e3bf   # = project_id, NOT the MCP URL
 AUTH_RESOURCE=https://pixelsprout-1.tail8d66c9.ts.net/mcp        # RFC 9728 resource id = canonical MCP URL
 AUTH_EMAIL_CLAIM=email
-AUTH_MEMBER_EMAILS=Braeden:braedenleefoster@gmail.com            # add ",Partner:her@email" as needed
-TAILNET_DEFAULT_MEMBER=Braeden
+# Names MUST match an existing seeded Member exactly (= AKAHU_MEMBER_NAME_*),
+# else a new empty Member is created and the OAuth user won't see the data.
+AUTH_MEMBER_EMAILS=Braeden Foster:braedenleefoster@gmail.com     # add ",Partner Name:her@email" as needed
+TAILNET_DEFAULT_MEMBER=Braeden Foster
 ```
 
 ```bash
