@@ -75,14 +75,23 @@ rsync -az auth-page/serve.mjs "$PI:$PI_DIR/auth-page/serve.mjs"
 say "Pi: restart services"
 ssh "$PI" "sudo systemctl restart akahu-budget-mcp auth-page; systemctl is-active akahu-budget-mcp auth-page"
 
-# --- 5. Verify public endpoints --------------------------------------------
+# --- 5. Verify public endpoints (poll until ready) -------------------------
+# The MCP server binds its port a few seconds after systemd reports "active"
+# (it runs a startup sync first), so poll rather than checking once — else the
+# check races the restart and reports a false 502.
 say "Verify public endpoints"
+check() {
+  local path="$1" tries=20 code=000
+  for ((i = 1; i <= tries; i++)); do
+    code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$PUBLIC_URL$path" 2>/dev/null || echo 000)"
+    case "$code" in 2??) printf '  %s%-18s -> %s\n' "$PUBLIC_URL" "$path" "$code"; return 0 ;; esac
+    sleep 2
+  done
+  printf '  %s%-18s -> %s (after %ds)\n' "$PUBLIC_URL" "$path" "$code" "$((tries * 2))"
+  return 1
+}
 rc=0
-for path in /healthz /oauth/authorize; do
-  code="$(curl -sS -o /dev/null -w '%{http_code}' "$PUBLIC_URL$path" 2>/dev/null || echo unreachable)"
-  printf '  %s%-18s -> %s\n' "$PUBLIC_URL" "$path" "$code"
-  case "$code" in 2??) ;; *) rc=1 ;; esac
-done
-[ "$rc" -eq 0 ] || die "One or more endpoints did not return 2xx — check 'journalctl -u auth-page' on the Pi."
+for path in /healthz /oauth/authorize; do check "$path" || rc=1; done
+[ "$rc" -eq 0 ] || die "Endpoint(s) still not 2xx after waiting — check 'journalctl -u akahu-budget-mcp' / '-u auth-page' on the Pi."
 
 say "Done. Auth-page + MCP server deployed."
