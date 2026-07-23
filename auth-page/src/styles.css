@@ -29,6 +29,13 @@ body {
   background: Canvas;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
   text-align: center;
+
+  div {
+      margin: 0 auto;
+      * {
+          width: 100%;
+      }
+  }
 }
 
 .card h1 {
@@ -39,4 +46,13 @@ body {
 .card p {
   margin: 0 0 1.25rem;
   color: GrayText;
+}
+
+.card [class*='OtpInput_module_inputContainer'] {
+  width: 100%;
+}
+
+.card [class*='OtpInput_module_slotsContainer'] {
+  justify-content: center;
+  width: 100%;
 }
