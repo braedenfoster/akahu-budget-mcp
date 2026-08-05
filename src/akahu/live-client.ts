@@ -57,11 +57,14 @@ export class LiveAkahuClient implements AkahuClient {
     start?: string | null;
     cursor?: string | null;
   }): Promise<AkahuTransactionsPage> {
-    // A cursor already encodes the window it was issued for; sending `start`
-    // alongside it would describe a different query. Send exactly one.
+    // `start` MUST be repeated on every page. Akahu's cursor carries only the
+    // position, not the window: following it with the cursor alone reopens the
+    // query to all history (verified against the live API — page 2 of a
+    // start=2026-07-08 query came back with June transactions and kept paging
+    // backwards). Repeating `start` keeps the window bounded and terminating.
     const params = new URLSearchParams();
+    if (opts.start) params.set("start", opts.start);
     if (opts.cursor) params.set("cursor", opts.cursor);
-    else if (opts.start) params.set("start", opts.start);
 
     const query = params.size > 0 ? `?${params.toString()}` : "";
     const { items, cursor } = await this.request<AkahuTransaction[]>(

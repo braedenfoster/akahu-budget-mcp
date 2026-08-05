@@ -64,10 +64,10 @@ export class FakeAkahuClient implements AkahuClient {
  *  1. **Pagination runs newest → oldest.** The last page of a full backfill is
  *     the OLDEST slice of history, so a cursor left over from a completed run
  *     points at the far end of the past, not at "new since last time".
- *  2. **A cursor is scoped to the query that produced it.** It encodes the
- *     `start` filter plus an offset. Replaying a spent cursor re-serves that
- *     same terminal page forever; it never reveals transactions that arrived
- *     afterwards.
+ *  2. **A cursor carries position only, never the window.** The caller must
+ *     re-send `start` on every page; a cursor followed on its own reopens the
+ *     query to all history. Replaying a spent cursor re-serves that same
+ *     terminal page forever, never the transactions that arrived afterwards.
  *
  * Together these are why a persisted pagination cursor silently freezes a
  * nightly sync. Tests use this fake to hold that behaviour down.
@@ -101,28 +101,21 @@ export class HistoryAkahuClient implements AkahuClient {
   }): Promise<AkahuTransactionsPage> {
     this.listTransactionsCalls++;
 
-    // A cursor carries its own query window; `start` only applies to page 1.
-    const query: { start: string | null; offset: number } = opts.cursor
-      ? (JSON.parse(Buffer.from(opts.cursor, "base64").toString()) as {
-          start: string | null;
-          offset: number;
-        })
-      : { start: opts.start ?? null, offset: 0 };
-
-    if (!opts.cursor) this.startsRequested.push(query.start);
+    // The window comes from `start` on THIS request, exactly as Akahu behaves.
+    // A caller that forgets to repeat it gets the unbounded history back.
+    const start = opts.start ?? null;
+    const offset = opts.cursor ? Number(opts.cursor) : 0;
+    if (!opts.cursor) this.startsRequested.push(start);
 
     const pool = this.txns
-      .filter((t) => (query.start ? t.date >= query.start : true))
+      .filter((t) => (start ? t.date >= start : true))
       .sort((a, b) => b.date.localeCompare(a.date)); // newest first
 
-    const items = pool.slice(query.offset, query.offset + this.pageSize);
-    const nextOffset = query.offset + this.pageSize;
+    const items = pool.slice(offset, offset + this.pageSize);
+    const nextOffset = offset + this.pageSize;
     const hasMore = nextOffset < pool.length;
-    const nextCursor = hasMore
-      ? Buffer.from(JSON.stringify({ start: query.start, offset: nextOffset })).toString("base64")
-      : null;
 
-    return { items, nextCursor, hasMore };
+    return { items, nextCursor: hasMore ? String(nextOffset) : null, hasMore };
   }
 }
 

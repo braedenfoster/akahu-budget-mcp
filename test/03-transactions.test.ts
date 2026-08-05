@@ -103,6 +103,30 @@ describe("ticket 03 — transaction sync invariants (Seam 2)", () => {
     expect(ctx.db.select().from(syncState).get()?.cursor).toBeNull();
   });
 
+  it("keeps the window bounded across pages instead of walking all history", async () => {
+    const ctx = testContext("2026-08-06T09:00:00.000Z");
+    const connectionId = seedConnection(ctx);
+    const ancient = Array.from({ length: 6 }, (_, i) =>
+      sampleTransaction({ id: `old_${i}`, date: `2024-10-0${i + 1}`, amount: -1 }),
+    );
+    const client = new HistoryAkahuClient([sampleAccount()], ancient);
+    await syncAccounts(ctx, [{ connectionId, client }]);
+
+    await syncTransactions(ctx, [{ connectionId, client }]); // backfill, sets watermark
+    client.addTransactions([
+      sampleTransaction({ id: "aug_1", date: "2026-08-02", amount: -10 }),
+      sampleTransaction({ id: "aug_2", date: "2026-08-03", amount: -11 }),
+      sampleTransaction({ id: "aug_3", date: "2026-08-04", amount: -12 }),
+    ]);
+
+    // pageSize is 2, so this window spans multiple pages. If the sync dropped
+    // the start filter while paging, the 2024 rows would be re-fetched too.
+    const nightly = await syncTransactions(ctx, [{ connectionId, client }]);
+
+    expect(nightly.inserted).toBe(3);
+    expect(nightly.updated).toBe(0);
+  });
+
   it("a pending transaction that settles updates in place", async () => {
     const ctx = testContext();
     const pending = sampleTransaction({ id: "trans_1", amount: -40.0, pending: true });

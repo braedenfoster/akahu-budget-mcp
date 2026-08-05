@@ -79,8 +79,9 @@ export interface AkahuClient {
    * List Transactions, newest first.
    *
    * `start` bounds the window (ISO-8601); omit it to walk all history. `cursor`
-   * pages within an already-started query and, when set, supersedes `start`
-   * because the cursor already encodes the window.
+   * pages within that window and carries position ONLY — implementations must
+   * keep sending `start` alongside it, or the window silently reopens to all
+   * history from page 2 onward.
    */
   listTransactions(opts: {
     start?: string | null;
