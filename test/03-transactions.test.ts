@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { transactions } from "../src/db/schema.js";
+import { syncState, transactions } from "../src/db/schema.js";
 import { syncAccounts } from "../src/sync/accounts.js";
 import { syncTransactions } from "../src/sync/transactions.js";
 import { runCategorization } from "../src/categorization/engine.js";
@@ -10,7 +10,12 @@ import {
 } from "../src/tools/transactions.js";
 import { invokeTool } from "../src/tools/types.js";
 import { putSetting, SETTING_LAST_SYNC_AT } from "../src/context.js";
-import { FakeAkahuClient, sampleAccount, sampleTransaction } from "./fixtures/akahu.js";
+import {
+  FakeAkahuClient,
+  HistoryAkahuClient,
+  sampleAccount,
+  sampleTransaction,
+} from "./fixtures/akahu.js";
 import { seedConnection, testContext } from "./helpers.js";
 import type { AppContext } from "../src/context.js";
 
@@ -36,6 +41,66 @@ describe("ticket 03 — transaction sync invariants (Seam 2)", () => {
     expect(second).toMatchObject({ inserted: 0, updated: 2 });
 
     expect(ctx.db.select().from(transactions).all()).toHaveLength(2);
+  });
+
+  it("picks up new transactions after a completed backfill (no frozen cursor)", async () => {
+    // Regression: the nightly sync persisted the pagination cursor from the end
+    // of the initial backfill. Akahu pages newest → oldest, so that cursor
+    // pointed at the OLDEST page of history. Every later run replayed that same
+    // ancient page, reported "0 new transactions", and never advanced.
+    const ctx = testContext("2026-08-06T09:00:00.000Z");
+    const connectionId = seedConnection(ctx);
+    const client = new HistoryAkahuClient(
+      [sampleAccount()],
+      [
+        sampleTransaction({ id: "old_1", date: "2024-10-09", amount: -5 }),
+        sampleTransaction({ id: "old_2", date: "2024-10-11", amount: -6 }),
+        sampleTransaction({ id: "old_3", date: "2024-10-13", amount: -7 }),
+        sampleTransaction({ id: "jul_1", date: "2026-07-21", amount: -8 }),
+      ],
+    );
+    await syncAccounts(ctx, [{ connectionId, client }]);
+
+    const backfill = await syncTransactions(ctx, [{ connectionId, client }]);
+    expect(backfill.inserted).toBe(4);
+
+    // The bank posts August transactions after the backfill completed.
+    client.addTransactions([
+      sampleTransaction({ id: "aug_1", date: "2026-08-03", amount: -20 }),
+      sampleTransaction({ id: "aug_2", date: "2026-08-05", amount: -30 }),
+    ]);
+
+    const nightly = await syncTransactions(ctx, [{ connectionId, client }]);
+
+    expect(nightly.inserted).toBe(2);
+    const ids = ctx.db.select().from(transactions).all().map((r) => r.akahuId);
+    expect(ids).toContain("aug_1");
+    expect(ids).toContain("aug_2");
+  });
+
+  it("syncs forward from a dated window with overlap, not from a stored cursor", async () => {
+    const ctx = testContext("2026-08-06T09:00:00.000Z");
+    const connectionId = seedConnection(ctx);
+    const client = new HistoryAkahuClient([sampleAccount()], [
+      sampleTransaction({ id: "t_1", date: "2026-08-01", amount: -5 }),
+    ]);
+    await syncAccounts(ctx, [{ connectionId, client }]);
+
+    // First run has no watermark: full backfill, so no start filter.
+    await syncTransactions(ctx, [{ connectionId, client }]);
+    expect(client.startsRequested[0]).toBeNull();
+
+    // Second run asks for a window that reaches back before the last sync, so
+    // late-posted and newly-settled transactions are re-seen.
+    await syncTransactions(ctx, [{ connectionId, client }]);
+    const start = client.startsRequested[1];
+    expect(start).not.toBeNull();
+    expect(new Date(start as string).getTime()).toBeLessThan(
+      new Date("2026-08-06T09:00:00.000Z").getTime(),
+    );
+
+    // No pagination cursor is carried between runs.
+    expect(ctx.db.select().from(syncState).get()?.cursor).toBeNull();
   });
 
   it("a pending transaction that settles updates in place", async () => {

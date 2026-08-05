@@ -61,7 +61,11 @@ export interface AkahuTransaction {
 
 export interface AkahuTransactionsPage {
   items: AkahuTransaction[];
-  /** Position to resume from on the next sync; null if never established. */
+  /**
+   * Next page of THIS query, or null at the end of it. Scoped to the `start`
+   * window that produced it — it is not a resumable sync watermark and must
+   * never outlive the run that fetched it (ADR-0005).
+   */
   nextCursor: string | null;
   /** True when more pages are available right now (fetch again immediately). */
   hasMore: boolean;
@@ -71,6 +75,15 @@ export interface AkahuTransactionsPage {
 export interface AkahuClient {
   /** List all Accounts visible to this Connection. */
   listAccounts(): Promise<AkahuAccount[]>;
-  /** List Transactions incrementally from the given cursor (null = from start). */
-  listTransactions(opts: { cursor: string | null }): Promise<AkahuTransactionsPage>;
+  /**
+   * List Transactions, newest first.
+   *
+   * `start` bounds the window (ISO-8601); omit it to walk all history. `cursor`
+   * pages within an already-started query and, when set, supersedes `start`
+   * because the cursor already encodes the window.
+   */
+  listTransactions(opts: {
+    start?: string | null;
+    cursor: string | null;
+  }): Promise<AkahuTransactionsPage>;
 }

@@ -59,11 +59,33 @@ function toRow(txn: AkahuTransaction, homeCurrency: string, nowIso: string): Txn
 }
 
 /**
- * Pull Transactions for each Connection incrementally (from the stored cursor)
- * and upsert them keyed on Akahu's transaction id. Idempotent: re-syncing an
- * overlapping window updates rows in place and never double-counts (ADR-0005).
- * A pending transaction that later settles updates the same row (pending flag
- * flips), never a delete-and-reinsert.
+ * How far back before the last successful sync each incremental run reaches.
+ *
+ * Banks post transactions late and pending rows settle days after they appear,
+ * so a window that started exactly at the last sync would miss them. The upsert
+ * is keyed on Akahu's id, so re-seeing a transaction is free.
+ */
+export const SYNC_OVERLAP_DAYS = 7;
+
+/** Shift an ISO instant back by whole days, staying in UTC. */
+function isoMinusDays(iso: string, days: number): string | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString();
+}
+
+/**
+ * Pull Transactions for each Connection and upsert them keyed on Akahu's
+ * transaction id. Idempotent: re-syncing an overlapping window updates rows in
+ * place and never double-counts (ADR-0005). A pending transaction that later
+ * settles updates the same row (pending flag flips), never a delete-and-reinsert.
+ *
+ * Incremental runs are driven by a DATE WINDOW, never by a stored cursor. Akahu
+ * pages newest → oldest, so the cursor left over from a completed backfill
+ * points at the oldest edge of history; persisting and resuming it replays that
+ * same ancient page forever while reporting success. The cursor is therefore
+ * scoped to a single run, and `sync_state.cursor` is deliberately kept null.
  *
  * Data ingestion — not gated by read-only mode, not audited.
  */
@@ -80,16 +102,23 @@ export async function syncTransactions(
 
   for (const job of jobs) {
     const state = ctx.db
-      .select({ cursor: syncState.cursor })
+      .select({ lastSyncedAt: syncState.lastSyncedAt })
       .from(syncState)
       .where(eq(syncState.connectionId, job.connectionId))
       .get();
-    let cursor: string | null = state?.cursor ?? null;
-    let latest: string | null = cursor;
+
+    // No watermark yet means this Connection has never synced: walk all history.
+    // Otherwise ask for everything since the last run, less the overlap.
+    const start = state?.lastSyncedAt
+      ? isoMinusDays(state.lastSyncedAt, SYNC_OVERLAP_DAYS)
+      : null;
+
+    // Pagination only. Reset every run and never persisted (see the note above).
+    let cursor: string | null = null;
 
     // Bound the loop defensively; a household never has this many pages.
     for (let page = 0; page < 10_000; page++) {
-      const result = await job.client.listTransactions({ cursor });
+      const result = await job.client.listTransactions({ start, cursor });
       ctx.db.transaction(() => {
         for (const txn of result.items) {
           const row = toRow(txn, homeCurrency, nowIso);
@@ -120,17 +149,20 @@ export async function syncTransactions(
           }
         }
       });
-      latest = result.nextCursor ?? latest;
-      if (!result.hasMore) break;
+      // Stop at the end of the window, or if a page claims more but hands back
+      // no cursor to follow — otherwise the loop would refetch page 1 forever.
+      if (!result.hasMore || !result.nextCursor) break;
       cursor = result.nextCursor;
     }
 
+    // Advance the watermark only after the window drained without throwing: a
+    // failed run leaves the old value so the next run re-covers the same ground.
     ctx.db
       .insert(syncState)
-      .values({ connectionId: job.connectionId, cursor: latest, lastSyncedAt: nowIso })
+      .values({ connectionId: job.connectionId, cursor: null, lastSyncedAt: nowIso })
       .onConflictDoUpdate({
         target: syncState.connectionId,
-        set: { cursor: latest, lastSyncedAt: nowIso },
+        set: { cursor: null, lastSyncedAt: nowIso },
       })
       .run();
   }

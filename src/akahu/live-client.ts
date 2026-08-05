@@ -53,8 +53,17 @@ export class LiveAkahuClient implements AkahuClient {
     return items;
   }
 
-  async listTransactions(opts: { cursor: string | null }): Promise<AkahuTransactionsPage> {
-    const query = opts.cursor ? `?cursor=${encodeURIComponent(opts.cursor)}` : "";
+  async listTransactions(opts: {
+    start?: string | null;
+    cursor?: string | null;
+  }): Promise<AkahuTransactionsPage> {
+    // A cursor already encodes the window it was issued for; sending `start`
+    // alongside it would describe a different query. Send exactly one.
+    const params = new URLSearchParams();
+    if (opts.cursor) params.set("cursor", opts.cursor);
+    else if (opts.start) params.set("start", opts.start);
+
+    const query = params.size > 0 ? `?${params.toString()}` : "";
     const { items, cursor } = await this.request<AkahuTransaction[]>(
       `/transactions${query}`,
     );
