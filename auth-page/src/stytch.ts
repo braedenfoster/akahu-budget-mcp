@@ -1,4 +1,5 @@
 import { createStytchB2BUIClient } from '@stytch/react/b2b';
+import { issuerFromResourceMetadata, withIssuer } from './issuer.ts';
 
 /**
  * The publishable Stytch B2B public token, injected at build time.
@@ -22,3 +23,27 @@ export const tokenIsConfigured =
 export const stytch = tokenIsConfigured
   ? createStytchB2BUIClient(publicToken)
   : null;
+
+/** Same origin as the MCP server behind Funnel, so no CORS and no extra config. */
+const RESOURCE_METADATA_PATH = '/.well-known/oauth-protected-resource';
+
+async function fetchAdvertisedIssuer(): Promise<string | null> {
+  try {
+    const res = await fetch(RESOURCE_METADATA_PATH, { cache: 'no-store' });
+    return res.ok ? issuerFromResourceMetadata(await res.json()) : null;
+  } catch {
+    return null;
+  }
+}
+
+// B2BIdentityProvider redirects to whatever redirect_uri this returns, so this
+// is the one place to fix the issuer without replacing Stytch's consent screen.
+if (stytch) {
+  const submit = stytch.idp.oauthAuthorizeSubmit;
+  stytch.idp.oauthAuthorizeSubmit = async (data) => {
+    const [response, issuer] = await Promise.all([submit(data), fetchAdvertisedIssuer()]);
+    return issuer
+      ? { ...response, redirect_uri: withIssuer(response.redirect_uri, issuer) }
+      : response;
+  };
+}
