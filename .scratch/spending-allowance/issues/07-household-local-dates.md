@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 ## Problem
 
@@ -32,3 +32,11 @@ Deploy together with `BUDGET_MONTH_START_DAY=15` in the Pi's `.env`, so the Pi r
 Migration 0009 calls `local_date()`, a JS function that `openDb` registers. Run it only through the server startup or `pnpm db:migrate`. The `sqlite3` CLI and `drizzle-kit migrate` cannot run it.
 
 Out of scope: balance snapshots (`src/sync/accounts.ts`) keep the UTC date. The 2am sync labels the snapshot with the previous day, which is the day the balance closes.
+
+## Comments
+
+17 Oct 2026: The agent deployed `28b5eff` to the Pi together with `BUDGET_MONTH_START_DAY=15`. The database backup is `data/budget.sqlite.bak.pre-local-dates-20261017`, and the `.env` backup is `.env.bak.pre-start-day-15`. After the restart:
+- `get_budget` returned Period 2026-10 as 15 Oct to 14 Nov.
+- Stored Transactions on Akahu's NZ midnight have the NZ date.
+- The widget route returned the same allowance as `get_budget`: +$2,568.58 ($620/week, 29 days left).
+
