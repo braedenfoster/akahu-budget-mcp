@@ -59,6 +59,8 @@ export const SETTING_READ_ONLY = "read_only";
 export const SETTING_BUDGET_MONTH_START_DAY = "budget_month_start_day";
 export const SETTING_LAST_SYNC_AT = "last_sync_at";
 export const SETTING_HOME_CURRENCY = "home_currency";
+export const SETTING_HOUSEHOLD_TIMEZONE = "household_timezone";
+const DEFAULT_HOUSEHOLD_TIMEZONE = "Pacific/Auckland";
 
 export function getSetting(ctx: AppContext, key: string): string | undefined {
   const row = ctx.db
@@ -89,6 +91,22 @@ export function budgetMonthStartDay(ctx: AppContext): number {
   const n = raw ? Number.parseInt(raw, 10) : 1;
   if (!Number.isInteger(n) || n < 1 || n > 28) return 1;
   return n;
+}
+
+/**
+ * IANA time zone for the Spending allowance's local today (ADR-0011). Default
+ * Pacific/Auckland; an unknown zone falls back to it. Other tools keep UTC
+ * Period resolution.
+ */
+export function householdTimezone(ctx: AppContext): string {
+  const raw = getSetting(ctx, SETTING_HOUSEHOLD_TIMEZONE);
+  if (!raw) return DEFAULT_HOUSEHOLD_TIMEZONE;
+  try {
+    new Intl.DateTimeFormat("en-NZ", { timeZone: raw });
+    return raw;
+  } catch {
+    return DEFAULT_HOUSEHOLD_TIMEZONE;
+  }
 }
 
 /**

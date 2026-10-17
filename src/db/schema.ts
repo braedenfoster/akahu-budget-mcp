@@ -24,6 +24,7 @@ import {
  * Key/value settings for the single Household deployment. Notable keys:
  *   - `read_only`             "true" | "false" — when true, every write is refused.
  *   - `budget_month_start_day` "1".."28"       — day a Period begins (ADR-0004).
+ *   - `household_timezone`     IANA zone       — local today for the Spending allowance (ADR-0011).
  */
 export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),

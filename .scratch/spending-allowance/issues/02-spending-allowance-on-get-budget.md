@@ -4,18 +4,18 @@
 
 **Blocked by:** 01 (Committed/Flexible flag on Budget Categories)
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 Spec: `.scratch/spending-allowance/spec.md` (Formula, Time zone, Output shape)
 
-- [ ] Amount = Flexible Envelopes' remaining (pooled, not clamped) − Committed overspend − Uncategorized spend; the three parts are returned too
-- [ ] Committed underspend adds nothing; Committed overspend subtracts
-- [ ] Uncategorized spend subtracts, and `uncategorized_count` counts the Uncategorized spend Transactions in the Period
-- [ ] `TRANSFER` rows, Income, and Planned Purchases do not change the figure
-- [ ] `status` is `no_budget` when the Period has no Budget, `over` when the amount is negative, else `ok`
-- [ ] A `no_budget` read creates no Budget
-- [ ] A new `household_timezone` setting (default `Pacific/Auckland`) sets local today; `days_left` includes today and is clamped to the Period length
-- [ ] `per_week` is null unless `status` is `ok` and `days_left` > 0; it equals the amount when 7 or fewer days are left, else floor(amount × 7 ÷ days_left)
-- [ ] `stale` is true when Data-as-of is missing or older than 36 hours
-- [ ] Other tools keep their existing Period resolution
-- [ ] Seam 1 tests cover each case listed in the spec's Testing Decisions, including clocks just before and after NZ local midnight
+- [x] Amount = Flexible Envelopes' remaining (pooled, not clamped) − Committed overspend − Uncategorized spend; the three parts are returned too
+- [x] Committed underspend adds nothing; Committed overspend subtracts
+- [x] Uncategorized spend subtracts, and `uncategorized_count` counts the Uncategorized spend Transactions in the Period
+- [x] `TRANSFER` rows, Income, and Planned Purchases do not change the figure
+- [x] `status` is `no_budget` when the Period has no Budget, `over` when the amount is negative, else `ok`
+- [x] A `no_budget` read creates no Budget
+- [x] A new `household_timezone` setting (default `Pacific/Auckland`) sets local today; `days_left` includes today and is clamped to the Period length
+- [x] `per_week` is null unless `status` is `ok` and `days_left` > 0; it equals the amount when 7 or fewer days are left, else floor(amount × 7 ÷ days_left)
+- [x] `stale` is true when Data-as-of is missing or older than 36 hours
+- [x] Other tools keep their existing Period resolution
+- [x] Seam 1 tests cover each case listed in the spec's Testing Decisions, including clocks just before and after NZ local midnight

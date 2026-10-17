@@ -111,3 +111,20 @@ export function daysLeftInPeriod(period: Period, asOf: string): number {
   const diff = Math.floor((end.getTime() - asOfDate.getTime()) / (24 * 60 * 60 * 1000));
   return Math.max(0, diff + 1);
 }
+
+/** Number of calendar days in the Period. */
+export function periodLengthDays(period: Period): number {
+  return daysLeftInPeriod(period, period.startDate);
+}
+
+/** The calendar date ("YYYY-MM-DD") of `instant` in the given IANA time zone. */
+export function localDate(instant: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-NZ", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(instant);
+  const part = (type: string) => parts.find((p) => p.type === type)!.value;
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}

@@ -16,11 +16,13 @@ export function homeCurrency(ctx: AppContext): string {
 /**
  * Shared aggregation fragments (single source of truth for the spend/income
  * definitions across the budget and reports engines; ADR-0008 endorses
- * hand-written SQL for aggregations). `nonIncomeNet` is the signed net of
- * spend-relevant transactions (excludes income and internal transfers);
- * `incomeNet` is the sum of income-tagged credits.
+ * hand-written SQL for aggregations). A spend row is neither income nor an
+ * internal transfer. `nonIncomeNet` is the signed net of spend rows and
+ * `spendCount` counts them; `incomeNet` is the sum of income-tagged credits.
  */
-export const nonIncomeNetSql = sql<number>`coalesce(sum(case when ${transactions.isIncome} = 0 and (${transactions.type} is null or ${transactions.type} != 'TRANSFER') then ${transactions.amountCents} else 0 end), 0)`;
+const isSpendSql = sql`${transactions.isIncome} = 0 and (${transactions.type} is null or ${transactions.type} != 'TRANSFER')`;
+export const nonIncomeNetSql = sql<number>`coalesce(sum(case when ${isSpendSql} then ${transactions.amountCents} else 0 end), 0)`;
+export const spendCountSql = sql<number>`coalesce(sum(case when ${isSpendSql} then 1 else 0 end), 0)`;
 export const incomeNetSql = sql<number>`coalesce(sum(case when ${transactions.isIncome} = 1 then ${transactions.amountCents} else 0 end), 0)`;
 
 /** Resolve a Period from an optional key; default is the Period containing now. */
@@ -137,7 +139,8 @@ function spendByCategory(ctx: AppContext, period: Period): Map<number, number> {
   const map = new Map<number, number>();
   for (const r of rows) {
     if (r.categoryId === null) continue;
-    map.set(r.categoryId, -r.netAmount); // outflow is positive spent
+    // Outflow is positive spent. `0 -` keeps a zero net from becoming -0.
+    map.set(r.categoryId, 0 - r.netAmount);
   }
   return map;
 }
@@ -175,18 +178,48 @@ export interface BudgetSnapshot {
  * Compute the full Budget picture for a Period entirely server-side (ADR-0003):
  * per-Envelope allocated/spent/remaining/slack, expected + actual income,
  * totals, and Household headroom. Every value is integer cents.
- *
- * Envelopes shown = every allocated Envelope, plus any Budget Category with
- * spend in the Period but no allocation (allocated 0), so totals reconcile with
- * the underlying Transactions.
  */
 export function computeBudget(ctx: AppContext, period: Period): BudgetSnapshot {
   // Pure read: no seeding here, so get_budget and evaluate_purchase never
   // mutate state (ticket 06). Uncategorized is seeded during sync instead.
   const budget = findBudget(ctx, period.key);
+  const envelopeViews = computeEnvelopes(ctx, period, budget?.id);
+
+  const totalAllocated = envelopeViews.reduce((s, e) => s + e.allocated_cents, 0);
+  const totalSpent = envelopeViews.reduce((s, e) => s + e.spent_cents, 0);
+  const expected = budget?.expectedIncomeCents ?? null;
+  const actual = actualIncomeCents(ctx, period);
+  const incomeBasis = expected ?? actual;
+
+  return {
+    period: periodView(period),
+    currency: budget?.currency ?? homeCurrency(ctx),
+    has_budget: budget !== undefined,
+    envelopes: envelopeViews,
+    income: { expected_cents: expected, actual_cents: actual, by_stream: incomeByStream(ctx, period) },
+    totals: {
+      allocated_cents: totalAllocated,
+      spent_cents: totalSpent,
+      remaining_cents: totalAllocated - totalSpent,
+    },
+    // Money not yet assigned to any Envelope (CONTEXT.md): income - allocated.
+    household_headroom_cents: incomeBasis - totalAllocated,
+  };
+}
+
+/**
+ * Envelopes shown = every allocated Envelope, plus any Budget Category with
+ * spend in the Period but no allocation (allocated 0), so totals reconcile with
+ * the underlying Transactions.
+ */
+export function computeEnvelopes(
+  ctx: AppContext,
+  period: Period,
+  budgetId: number | undefined,
+): EnvelopeView[] {
   const spend = spendByCategory(ctx, period);
 
-  const allocationRows = budget
+  const allocationRows = budgetId !== undefined
     ? ctx.db
         .select({
           categoryId: envelopes.budgetCategoryId,
@@ -195,7 +228,7 @@ export function computeBudget(ctx: AppContext, period: Period): BudgetSnapshot {
         })
         .from(envelopes)
         .innerJoin(budgetCategories, eq(envelopes.budgetCategoryId, budgetCategories.id))
-        .where(eq(envelopes.budgetId, budget.id))
+        .where(eq(envelopes.budgetId, budgetId))
         .all()
     : [];
 
@@ -225,25 +258,5 @@ export function computeBudget(ctx: AppContext, period: Period): BudgetSnapshot {
     });
   }
   envelopeViews.sort((a, b) => a.category.localeCompare(b.category));
-
-  const totalAllocated = envelopeViews.reduce((s, e) => s + e.allocated_cents, 0);
-  const totalSpent = envelopeViews.reduce((s, e) => s + e.spent_cents, 0);
-  const expected = budget?.expectedIncomeCents ?? null;
-  const actual = actualIncomeCents(ctx, period);
-  const incomeBasis = expected ?? actual;
-
-  return {
-    period: periodView(period),
-    currency: budget?.currency ?? homeCurrency(ctx),
-    has_budget: budget !== undefined,
-    envelopes: envelopeViews,
-    income: { expected_cents: expected, actual_cents: actual, by_stream: incomeByStream(ctx, period) },
-    totals: {
-      allocated_cents: totalAllocated,
-      spent_cents: totalSpent,
-      remaining_cents: totalAllocated - totalSpent,
-    },
-    // Money not yet assigned to any Envelope (CONTEXT.md): income - allocated.
-    household_headroom_cents: incomeBasis - totalAllocated,
-  };
+  return envelopeViews;
 }
