@@ -41,6 +41,7 @@ https://<your-host>.<your-tailnet>.ts.net
 | Component        | Port (localhost) | Auth                         | Reached by |
 |------------------|------------------|------------------------------|------------|
 | MCP tailnet      | `PORT` (3000)    | none — WireGuard is the auth | Claude Desktop, via `tailscale serve` / MagicDNS |
+| Widget (tailnet) | `PORT` (3000), `/widget` only | none — WireGuard is the auth | Phone widget, via `tailscale serve` HTTPS `:8443` |
 | MCP public       | `PUBLIC_PORT` (3443) | OAuth 2.1 (Stytch JWT)   | ChatGPT / remote Claude, via Funnel `/mcp` |
 | Auth page        | 8088             | Stytch B2B login (Email OTP) | The OAuth consent step, via Funnel `/oauth` |
 
@@ -163,6 +164,10 @@ path-routes 443 between the auth page and the MCP public port. Verify the exact
 ```bash
 # Private tailnet path for the Claude Desktop Member (unchanged):
 sudo tailscale serve --bg --http=80 http://127.0.0.1:3000
+
+# Private tailnet HTTPS for the phone widget only (443 belongs to Funnel, and
+# browsers upgrade the HTTP URL to 443). Never Funnel this port: the route has no auth.
+sudo tailscale serve --bg --https=8443 --set-path=/widget http://127.0.0.1:3000/widget
 
 # Public HTTPS on 443, path-routed:
 sudo tailscale funnel --bg --https=443 --set-path=/oauth http://127.0.0.1:8088
