@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** shipped — implemented on `main` (commit 2b6601c).
 
 Spec: `.scratch/spending-allowance/spec.md` (Schema, Tools)
 
