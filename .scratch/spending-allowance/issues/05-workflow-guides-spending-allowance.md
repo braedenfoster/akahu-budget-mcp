@@ -4,11 +4,13 @@
 
 **Blocked by:** 01 (Committed/Flexible flag), 02 (Spending allowance on get_budget)
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 Spec: `.scratch/spending-allowance/spec.md` (Workflow guides)
 
-- [ ] `create_budget` tells the agent to show the Committed and Flexible totals and the resulting Spending allowance before the Member confirms allocations
-- [ ] `plan_purchase` tells the agent, for a savings-funded purchase, to allocate the cost to the Home projects Envelope after the Member approves and before the payment goes out
-- [ ] Any guide step that creates a category tells the agent to ask the Member for Committed or Flexible
-- [ ] Guide tests assert the new steps are present
+- [x] `create_budget` tells the agent to show the Committed and Flexible totals and the resulting Spending allowance before the Member confirms allocations
+- [x] `plan_purchase` tells the agent, for a savings-funded purchase, to allocate the cost to the Home projects Envelope after the Member approves and before the payment goes out
+- [x] Any guide step that creates a category tells the agent to ask the Member for Committed or Flexible
+- [x] Guide tests assert the new steps are present
+
+**Note:** `get_budget` gained `allocated_by_kind` (`committed_cents`, `flexible_cents`, Uncategorized excluded). The server computes the Committed and Flexible totals, so the `create_budget` guide quotes them without any agent arithmetic (ADR-0003).

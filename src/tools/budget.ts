@@ -13,7 +13,7 @@ import {
   resolvePeriod,
   setAllocation,
 } from "../budget/engine.js";
-import { computeSpendingAllowance } from "../budget/allowance.js";
+import { computeAllocatedByKind, computeSpendingAllowance } from "../budget/allowance.js";
 import { previousPeriod } from "../period.js";
 import { budgetMonthStartDay } from "../context.js";
 import { defineTool } from "./types.js";
@@ -23,12 +23,13 @@ import { optionalPeriod as periodInput } from "./schemas.js";
 export const getBudgetTool = defineTool({
   name: "get_budget",
   description:
-    "Return the Budget for a Period: per-Envelope allocated/spent/remaining/slack (integer cents), expected + actual income, totals, Household headroom, the Spending allowance (Flexible money left, its parts, per-week figure, status, Uncategorized count, stale flag), and data-as-of. All math is server-side.",
+    "Return the Budget for a Period: per-Envelope allocated/spent/remaining/slack (integer cents), expected + actual income, totals, Household headroom, allocations totalled by kind (Committed and Flexible, excluding Uncategorized), the Spending allowance (Flexible money left, its parts, per-week figure, status, Uncategorized count, stale flag), and data-as-of. All math is server-side.",
   inputSchema: { period: periodInput },
   handler: (ctx, input) => {
     const period = resolvePeriod(ctx, input.period);
     return {
       ...computeBudget(ctx, period),
+      allocated_by_kind: computeAllocatedByKind(ctx, period),
       spending_allowance: computeSpendingAllowance(ctx, period),
       data_as_of: getDataAsOf(ctx),
     };

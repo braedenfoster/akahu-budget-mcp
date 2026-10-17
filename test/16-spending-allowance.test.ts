@@ -275,3 +275,22 @@ describe("Spending allowance on get_budget (Seam 1)", () => {
     expect(budget.spending_allowance).toMatchObject({ period: "2026-10", days_left: 0 });
   });
 });
+
+describe("Committed and Flexible allocated totals on get_budget (Seam 1)", () => {
+  it("totals allocations by kind and leaves Uncategorized out of both", async () => {
+    const ctx = await setup([
+      sampleTransaction({ id: "f1", date: "2026-10-03", amount: -120, group: "Food" }),
+      sampleTransaction({ id: "h1", date: "2026-10-01", amount: -2000, group: "Housing" }),
+      sampleTransaction({ id: "x1", date: "2026-10-04", amount: -30, description: "MYSTERY" }),
+    ]);
+    setKind(ctx, "Food", "flexible");
+    allocate(ctx, "Food", 50000);
+    allocate(ctx, "Housing", 250000);
+    allocate(ctx, "Uncategorized", 1000);
+
+    expect(invokeTool(ctx, getBudgetTool, { period: "2026-10" }).allocated_by_kind).toEqual({
+      committed_cents: 250000,
+      flexible_cents: 50000,
+    });
+  });
+});

@@ -79,6 +79,30 @@ export function computeSpendingAllowance(ctx: AppContext, period: Period): Spend
   };
 }
 
+export interface AllocatedByKind {
+  committed_cents: number;
+  flexible_cents: number;
+}
+
+/** Allocations summed by kind. Uncategorized counts toward neither kind. */
+export function computeAllocatedByKind(ctx: AppContext, period: Period): AllocatedByKind {
+  const budget = findBudget(ctx, period.key);
+  const totals: AllocatedByKind = { committed_cents: 0, flexible_cents: 0 };
+  if (!budget) return totals;
+  const categories = ctx.db
+    .select({ id: budgetCategories.id, kind: budgetCategories.kind, isSystem: budgetCategories.isSystem })
+    .from(budgetCategories)
+    .all();
+  const byId = new Map(categories.map((c) => [c.id, c]));
+  for (const e of computeEnvelopes(ctx, period, budget.id)) {
+    const category = byId.get(e.category_id);
+    if (!category || category.isSystem) continue;
+    if (category.kind === "flexible") totals.flexible_cents += e.allocated_cents;
+    else totals.committed_cents += e.allocated_cents;
+  }
+  return totals;
+}
+
 /**
  * The Period containing local today in the Household time zone. Only the
  * Spending allowance surfaces use it; tools keep UTC resolution.
