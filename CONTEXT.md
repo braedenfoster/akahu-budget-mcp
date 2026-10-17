@@ -44,6 +44,14 @@ _Avoid_: Other income, misc income
 Data in sqlite routing a merchant, description, Akahu group, or Akahu `type` to an Income Stream — the income-side twin of a Mapping Rule, sharing the same matcher. Lets a credit that Akahu never tags as income (e.g. a partner's pay arriving as a bank transfer) be promoted to an Income Stream.
 _Avoid_: Classifier, rule (bare)
 
+**Internal transfer**:
+Money moving between two of the Household's own Accounts (e.g. a card repayment, a move to savings), recognised by pairing the debit on one Account with the matching credit on the other. Neither Income nor spend.
+_Avoid_: Transfer (bare — Akahu's `TRANSFER` type is a different, narrower thing), movement, repayment
+
+**Refund**:
+A credit that reverses an earlier purchase. Not Income; it belongs to the purchase's Budget Category and reduces what was spent there.
+_Avoid_: Credit (bare), reversal, return
+
 ### Categorization
 
 **Akahu Category**:
@@ -83,6 +91,18 @@ _Avoid_: Surplus, headroom (headroom is reserved — see below), leftover
 **Household headroom**:
 Money not yet assigned to any Envelope this Period (`income − total allocated`).
 _Avoid_: Slack (slack is per-Envelope), surplus
+
+**Committed**:
+A Budget Category whose money is already spoken for — recurring payments, insurance, savings, debt repayment, sinking funds. Its unspent allocation is never treated as spendable.
+_Avoid_: Fixed, essential, recurring
+
+**Flexible**:
+A Budget Category for variable, chosen spending (e.g. groceries, cafés, clothes). Every Budget Category is either Committed or Flexible.
+_Avoid_: Discretionary, variable, non-essential
+
+**Spending allowance**:
+The Household's Flexible money left this Period: Flexible Envelopes' remaining, less any Committed overspend and Uncategorized spend. A derived figure, never stored.
+_Avoid_: Safe to spend, flexible spend, budget left, Slack, headroom
 
 **Reallocate**:
 Moving allocation from one Envelope to another — the explicit write a user confirms after a purchase decision.
