@@ -161,6 +161,39 @@ describe("Spending allowance on get_budget (Seam 1)", () => {
     expect(invokeTool(ctx, getBudgetTool, { period: "2026-10" }).has_budget).toBe(false);
   });
 
+  describe("display strings for the phone widget", () => {
+    it("formats the amount and per week as dollars", async () => {
+      // 23:00 on 25 Oct in Auckland: 7 days left, so per week equals the amount.
+      const ctx = await setup(
+        [sampleTransaction({ id: "f1", date: "2026-10-03", amount: -100, group: "Food" })],
+        "2026-10-25T10:00:00.000Z",
+      );
+      setKind(ctx, "Food", "flexible");
+      allocate(ctx, "Food", 300000);
+
+      expect(allowance(ctx)).toMatchObject({
+        amount_cents: 290000,
+        amount_display: "$2,900.00",
+        per_week_display: "$2,900.00",
+      });
+    });
+
+    it("shows a negative amount and no per week when over", async () => {
+      const ctx = await setup([
+        sampleTransaction({ id: "f1", date: "2026-10-03", amount: -600, group: "Food" }),
+      ]);
+      setKind(ctx, "Food", "flexible");
+      allocate(ctx, "Food", 50000);
+
+      expect(allowance(ctx)).toMatchObject({ amount_display: "-$100.00", per_week_display: null });
+    });
+
+    it("has no display strings when there is no Budget", async () => {
+      const ctx = await setup([]);
+      expect(allowance(ctx)).toMatchObject({ amount_display: null, per_week_display: null });
+    });
+  });
+
   describe("days_left and per_week", () => {
     async function flexibleBudget(now: string, spentDollars = 100): Promise<AppContext> {
       const ctx = await setup(

@@ -2,6 +2,7 @@ import { and, eq, gte, lte } from "drizzle-orm";
 import { getDataAsOf, householdToday, type AppContext } from "../context.js";
 import { budgetCategories, transactions } from "../db/schema.js";
 import { daysLeftInPeriod, periodLengthDays, type Period } from "../period.js";
+import { formatDollars } from "../money.js";
 import { computeEnvelopes, findBudget, spendCountSql } from "./engine.js";
 
 export interface SpendingAllowance {
@@ -10,6 +11,10 @@ export interface SpendingAllowance {
   /** Signed; null when no_budget. */
   amount_cents: number | null;
   per_week_cents: number | null;
+  /** amount_cents as dollars, e.g. "-$213.96"; null when no_budget. */
+  amount_display: string | null;
+  /** per_week_cents as dollars; null whenever per_week_cents is null. */
+  per_week_display: string | null;
   days_left: number;
   flexible_remaining_cents: number | null;
   committed_overspend_cents: number | null;
@@ -49,6 +54,8 @@ export function computeSpendingAllowance(ctx: AppContext, period: Period): Spend
       status: "no_budget",
       amount_cents: null,
       per_week_cents: null,
+      amount_display: null,
+      per_week_display: null,
       flexible_remaining_cents: null,
       committed_overspend_cents: null,
       uncategorized_spent_cents: null,
@@ -66,12 +73,15 @@ export function computeSpendingAllowance(ctx: AppContext, period: Period): Spend
     else committedOverspend += Math.max(0, -e.remaining_cents);
   }
   const amount = flexibleRemaining - committedOverspend - uncategorizedSpent;
+  const perWeekCents = perWeek(amount, daysLeft);
 
   return {
     ...base,
     status: amount < 0 ? "over" : "ok",
     amount_cents: amount,
-    per_week_cents: perWeek(amount, daysLeft),
+    per_week_cents: perWeekCents,
+    amount_display: formatDollars(amount),
+    per_week_display: perWeekCents === null ? null : formatDollars(perWeekCents),
     flexible_remaining_cents: flexibleRemaining,
     committed_overspend_cents: committedOverspend,
     uncategorized_spent_cents: uncategorizedSpent,

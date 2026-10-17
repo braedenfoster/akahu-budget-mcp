@@ -34,13 +34,19 @@ export function dollarsToCents(dollars: number): number {
 
 /** Format integer cents as a display string, e.g. (199900, "NZD") -> "NZD 1,999.00". */
 export function formatCents(cents: number, currency = DEFAULT_CURRENCY): string {
+  return `${cents < 0 ? "-" : ""}${currency} ${groupedAmount(cents)}`;
+}
+
+/** Dollars for glanceable surfaces such as the phone widget: "$2,568.58", "-$213.96". */
+export function formatDollars(cents: number): string {
+  return `${cents < 0 ? "-" : ""}$${groupedAmount(cents)}`;
+}
+
+function groupedAmount(cents: number): string {
   assertCents(cents, "cents");
-  const negative = cents < 0;
   const abs = Math.abs(cents);
-  const major = Math.floor(abs / 100);
-  const minor = abs % 100;
-  const grouped = major.toLocaleString("en-NZ");
-  return `${negative ? "-" : ""}${currency} ${grouped}.${minor.toString().padStart(2, "0")}`;
+  const major = Math.floor(abs / 100).toLocaleString("en-NZ");
+  return `${major}.${(abs % 100).toString().padStart(2, "0")}`;
 }
 
 /** Sum a list of cent amounts, asserting each is an integer. Empty sum is 0. */
