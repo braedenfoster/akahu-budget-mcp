@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { budgetMonthStartDay, getDataAsOf } from "../context.js";
+import { budgetMonthStartDay, getDataAsOf, type AppContext } from "../context.js";
 import { budgetCategories, CATEGORY_KINDS, transactions } from "../db/schema.js";
 import { formatCents } from "../money.js";
 import { periodFromKey } from "../period.js";
@@ -11,8 +11,10 @@ import {
   ensureCategoryByName,
   ensureUncategorized,
   isSystemCategory,
+  planRecategorization,
   reassignCategory,
   recategorize,
+  type CategoryMove,
 } from "../categorization/engine.js";
 import { mappingRules } from "../db/schema.js";
 import { defineTool } from "./types.js";
@@ -250,17 +252,36 @@ export const categorizeTransactionTool = defineTool({
 export const setCategoryRuleTool = defineTool({
   name: "set_category_rule",
   description:
-    "Create/replace a Mapping Rule routing a Transaction to a Budget Category, optionally backfilling existing Transactions. match_type is one of: merchant (exact), description (substring), akahu_group (exact), txn_type (exact Akahu type, e.g. LOAN). Audited; refused in read-only mode.",
+    "Create/replace a Mapping Rule routing a Transaction to a Budget Category, optionally backfilling existing Transactions. match_type is one of: merchant (exact), description (substring), akahu_group (exact), txn_type (exact Akahu type, e.g. LOAN). Audited; refused in read-only mode. With dry_run: true, writes nothing and returns how many Transactions the backfill would reclassify (would_reclassify), grouped by source and target Budget Category (moves). The count includes every Transaction the backfill would re-derive, not only those the new rule matches. With backfill: false it previews 0. Run a dry run before a rule that splits a category.",
   inputSchema: {
     match_type: z.enum(["merchant", "description", "akahu_group", "txn_type"]),
     match_value: z.string().min(1),
     category_id: z.number().int(),
     priority: z.number().int().default(0),
     backfill: z.boolean().default(true),
+    dry_run: z.boolean().default(false),
   },
   handler: (ctx, input) => {
     if (!categoryExists(ctx, input.category_id))
       throw new Error(`No category with id ${input.category_id}.`);
+    if (input.dry_run) {
+      const moves = input.backfill
+        ? planRecategorization(ctx, {
+            matchType: input.match_type,
+            matchValue: input.match_value,
+            budgetCategoryId: input.category_id,
+            priority: input.priority,
+          })
+        : [];
+      return {
+        dry_run: true as const,
+        match_type: input.match_type,
+        match_value: input.match_value,
+        category_id: input.category_id,
+        would_reclassify: moves.length,
+        moves: summarizeMoves(ctx, moves),
+      };
+    }
     return withWrite(
       ctx,
       {
@@ -294,3 +315,29 @@ export const setCategoryRuleTool = defineTool({
     );
   },
 });
+
+function summarizeMoves(ctx: AppContext, moves: CategoryMove[]) {
+  const names = new Map(
+    ctx.db
+      .select({ id: budgetCategories.id, name: budgetCategories.name })
+      .from(budgetCategories)
+      .all()
+      .map((c) => [c.id, c.name]),
+  );
+  const groups = new Map<string, { fromId: number | null; toId: number; count: number }>();
+  for (const { fromId, toId } of moves) {
+    const key = `${fromId}->${toId}`;
+    const group = groups.get(key) ?? { fromId, toId, count: 0 };
+    group.count++;
+    groups.set(key, group);
+  }
+  return [...groups.values()]
+    .sort((a, b) => b.count - a.count)
+    .map((g) => ({
+      from_category_id: g.fromId,
+      from_category: g.fromId === null ? null : (names.get(g.fromId) ?? null),
+      to_category_id: g.toId,
+      to_category: names.get(g.toId) ?? null,
+      count: g.count,
+    }));
+}

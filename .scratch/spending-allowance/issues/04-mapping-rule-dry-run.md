@@ -4,12 +4,12 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** shipped
 
 Spec: `.scratch/spending-allowance/spec.md` (Tools)
 
-- [ ] `set_category_rule` accepts `dry_run` (default false)
-- [ ] With `dry_run`, it returns the count of Transactions it would move, grouped by source Budget Category
-- [ ] With `dry_run`, it writes nothing: no rule, no recategorization, no audit row
-- [ ] Without `dry_run`, behaviour is unchanged
-- [ ] Seam 1 tests cover the criteria above
+- [x] `set_category_rule` accepts `dry_run` (default false)
+- [x] With `dry_run`, it returns the count of Transactions it would move, grouped by source Budget Category
+- [x] With `dry_run`, it writes nothing: no rule, no recategorization, no audit row
+- [x] Without `dry_run`, behaviour is unchanged
+- [x] Seam 1 tests cover the criteria above

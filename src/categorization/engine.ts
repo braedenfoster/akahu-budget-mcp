@@ -1,7 +1,7 @@
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import type { AppContext } from "../context.js";
 import { budgetCategories, mappingRules, transactions, type CategoryKind } from "../db/schema.js";
-import { buildMatcher, type MatchFields } from "../matching/matcher.js";
+import { buildMatcher, type MatchFields, type MatchRule } from "../matching/matcher.js";
 import { runIncomeClassification } from "../income/engine.js";
 
 export const UNCATEGORIZED_NAME = "Uncategorized";
@@ -73,6 +73,14 @@ interface Resolver {
   resolve(fields: MatchFields): number;
 }
 
+/** A Mapping Rule that is not stored yet, overlaid on the stored rules for a preview. */
+export interface ProposedMappingRule {
+  matchType: string;
+  matchValue: string;
+  budgetCategoryId: number;
+  priority: number;
+}
+
 /**
  * Load all Mapping Rules once and return an in-memory resolver over the shared
  * matcher (ADR-0009). Precedence is defined in `buildMatcher`; anything the
@@ -81,9 +89,9 @@ interface Resolver {
  * mortgage, which Akahu only tags with type=LOAN, or a standing order
  * identified by its description) still be routed to a Budget Category.
  */
-export function buildResolver(ctx: AppContext): Resolver {
+export function buildResolver(ctx: AppContext, proposed?: ProposedMappingRule): Resolver {
   const uncategorizedId = ensureUncategorized(ctx);
-  const rules = ctx.db
+  const rules: MatchRule[] = ctx.db
     .select({
       matchType: mappingRules.matchType,
       matchValue: mappingRules.matchValue,
@@ -93,6 +101,7 @@ export function buildResolver(ctx: AppContext): Resolver {
     })
     .from(mappingRules)
     .all();
+  if (proposed) overlayRule(rules, proposed);
   const match = buildMatcher(rules);
   return {
     uncategorizedId,
@@ -100,14 +109,40 @@ export function buildResolver(ctx: AppContext): Resolver {
   };
 }
 
+// Mirrors the upsert in set_category_rule: a rule with the same match keeps its
+// id (and so its tie-break rank); a new rule ranks as the most recent.
+function overlayRule(rules: MatchRule[], proposed: ProposedMappingRule): void {
+  const existing = rules.find(
+    (r) => r.matchType === proposed.matchType && r.matchValue === proposed.matchValue,
+  );
+  if (existing) {
+    existing.targetId = proposed.budgetCategoryId;
+    existing.priority = proposed.priority;
+    return;
+  }
+  rules.push({
+    matchType: proposed.matchType,
+    matchValue: proposed.matchValue,
+    targetId: proposed.budgetCategoryId,
+    priority: proposed.priority,
+    id: Number.MAX_SAFE_INTEGER,
+  });
+}
+
+/** One Transaction whose Budget Category would change on re-derivation. */
+export interface CategoryMove {
+  akahuId: string;
+  fromId: number | null;
+  toId: number;
+}
+
 /**
  * Re-derive the Budget Category for every non-overridden Transaction from its
- * stored merchant/group (extracted from the raw Akahu payload at sync time), so
- * refining rules reclassifies history without re-fetching (ADR-0005/0007).
- * Returns the number of Transactions whose category changed.
+ * stored merchant/group and return the ones that would change. Reads only, so a
+ * Mapping Rule can be previewed before it is stored.
  */
-export function recategorize(ctx: AppContext): number {
-  const resolver = buildResolver(ctx);
+export function planRecategorization(ctx: AppContext, proposed?: ProposedMappingRule): CategoryMove[] {
+  const resolver = buildResolver(ctx, proposed);
   const rows = ctx.db
     .select({
       akahuId: transactions.akahuId,
@@ -121,26 +156,37 @@ export function recategorize(ctx: AppContext): number {
     .where(eq(transactions.categoryOverride, false))
     .all();
 
-  let changed = 0;
+  const moves: CategoryMove[] = [];
+  for (const row of rows) {
+    const resolved = resolver.resolve({
+      merchant: row.merchant,
+      description: row.description,
+      group: row.group,
+      type: row.type,
+    });
+    if (row.current !== resolved)
+      moves.push({ akahuId: row.akahuId, fromId: row.current, toId: resolved });
+  }
+  return moves;
+}
+
+/**
+ * Apply `planRecategorization` from the stored merchant/group (extracted from
+ * the raw Akahu payload at sync time), so refining rules reclassifies history
+ * without re-fetching (ADR-0005/0007). Returns the number of Transactions moved.
+ */
+export function recategorize(ctx: AppContext): number {
+  const moves = planRecategorization(ctx);
   ctx.db.transaction(() => {
-    for (const row of rows) {
-      const resolved = resolver.resolve({
-        merchant: row.merchant,
-        description: row.description,
-        group: row.group,
-        type: row.type,
-      });
-      if (row.current !== resolved) {
-        ctx.db
-          .update(transactions)
-          .set({ budgetCategoryId: resolved })
-          .where(eq(transactions.akahuId, row.akahuId))
-          .run();
-        changed++;
-      }
+    for (const move of moves) {
+      ctx.db
+        .update(transactions)
+        .set({ budgetCategoryId: move.toId })
+        .where(eq(transactions.akahuId, move.akahuId))
+        .run();
     }
   });
-  return changed;
+  return moves.length;
 }
 
 /**

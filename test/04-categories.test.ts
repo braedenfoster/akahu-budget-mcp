@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { budgetCategories, transactions } from "../src/db/schema.js";
+import { auditLog, budgetCategories, mappingRules, transactions } from "../src/db/schema.js";
 import { runCategorization } from "../src/categorization/engine.js";
 import { syncAccounts } from "../src/sync/accounts.js";
 import { syncTransactions } from "../src/sync/transactions.js";
@@ -164,7 +164,7 @@ describe("ticket 04 — categorization (Seam 1)", () => {
       category_id: kidsId,
       backfill: true,
     });
-    expect(result.reclassified).toBe(1);
+    expect(result).toMatchObject({ reclassified: 1 });
     expect(categoryNameOf(ctx, "t1")).toBe("Kids");
   });
 
@@ -222,5 +222,129 @@ describe("ticket 04 — categorization (Seam 1)", () => {
     expect(() =>
       invokeTool(ctx, manageCategoriesTool, { action: "create", name: "Nope", kind: "flexible" }),
     ).toThrow(ReadOnlyError);
+  });
+});
+
+describe("set_category_rule dry_run (Seam 1)", () => {
+  const insuranceSplit = [
+    sampleTransaction({ id: "a1", amount: -120, group: "Household", merchant: "AIA" }),
+    sampleTransaction({ id: "a2", amount: -120, group: "Household", merchant: "AIA" }),
+    sampleTransaction({ id: "a3", amount: -40, group: "Lifestyle", merchant: "AIA" }),
+    sampleTransaction({ id: "b1", amount: -60, group: "Household", merchant: "Bunnings" }),
+  ];
+
+  it("returns the Transactions it would move, grouped by source Budget Category", async () => {
+    const ctx = await setup(insuranceSplit);
+    const insurance = createCategory(ctx, "Insurance");
+
+    const preview = invokeTool(ctx, setCategoryRuleTool, {
+      match_type: "merchant",
+      match_value: "AIA",
+      category_id: insurance,
+      dry_run: true,
+    });
+
+    expect(preview).toMatchObject({
+      dry_run: true,
+      would_reclassify: 3,
+      moves: [
+        { from_category: "Household", to_category: "Insurance", count: 2 },
+        { from_category: "Lifestyle", to_category: "Insurance", count: 1 },
+      ],
+    });
+  });
+
+  it("writes nothing: no rule, no recategorization, no audit row", async () => {
+    const ctx = await setup(insuranceSplit);
+    const insurance = createCategory(ctx, "Insurance");
+    const rulesBefore = ctx.db.select().from(mappingRules).all();
+    const auditBefore = ctx.db.select().from(auditLog).all().length;
+
+    invokeTool(ctx, setCategoryRuleTool, {
+      match_type: "merchant",
+      match_value: "AIA",
+      category_id: insurance,
+      dry_run: true,
+    });
+
+    expect(ctx.db.select().from(mappingRules).all()).toEqual(rulesBefore);
+    expect(ctx.db.select().from(auditLog).all()).toHaveLength(auditBefore);
+    expect(["a1", "a2", "a3", "b1"].map((id) => categoryNameOf(ctx, id))).toEqual([
+      "Household",
+      "Household",
+      "Lifestyle",
+      "Household",
+    ]);
+  });
+
+  it("previews in read-only mode, because it writes nothing", async () => {
+    const ctx = await setup(insuranceSplit);
+    const insurance = createCategory(ctx, "Insurance");
+    putSetting(ctx, "read_only", "true");
+
+    const preview = invokeTool(ctx, setCategoryRuleTool, {
+      match_type: "merchant",
+      match_value: "AIA",
+      category_id: insurance,
+      dry_run: true,
+    });
+    expect(preview).toMatchObject({ would_reclassify: 3 });
+  });
+
+  it("predicts what the same rule reclassifies without dry_run", async () => {
+    const ctx = await setup(insuranceSplit);
+    const insurance = createCategory(ctx, "Insurance");
+    const rule = { match_type: "merchant", match_value: "AIA", category_id: insurance };
+
+    const preview = invokeTool(ctx, setCategoryRuleTool, { ...rule, dry_run: true });
+    const applied = invokeTool(ctx, setCategoryRuleTool, rule);
+
+    expect(preview).toMatchObject({ would_reclassify: 3 });
+    expect(applied).toEqual({
+      match_type: "merchant",
+      match_value: "AIA",
+      category_id: insurance,
+      reclassified: 3,
+    });
+    expect(categoryNameOf(ctx, "a3")).toBe("Insurance");
+  });
+
+  it("previews retargeting an existing rule as a replacement, not an extra rule", async () => {
+    const ctx = await setup(insuranceSplit);
+    const lifestyle = categoryIdByName(ctx, "Lifestyle");
+    const insurance = createCategory(ctx, "Insurance");
+    invokeTool(ctx, setCategoryRuleTool, {
+      match_type: "merchant",
+      match_value: "AIA",
+      category_id: lifestyle,
+      priority: 5,
+    });
+
+    // The stored priority-5 rule would outrank a second AIA rule at priority 0.
+    const preview = invokeTool(ctx, setCategoryRuleTool, {
+      match_type: "merchant",
+      match_value: "AIA",
+      category_id: insurance,
+      dry_run: true,
+    });
+
+    expect(preview).toMatchObject({
+      would_reclassify: 3,
+      moves: [{ from_category: "Lifestyle", to_category: "Insurance", count: 3 }],
+    });
+  });
+
+  it("previews no moves when backfill is off", async () => {
+    const ctx = await setup(insuranceSplit);
+    const insurance = createCategory(ctx, "Insurance");
+
+    const preview = invokeTool(ctx, setCategoryRuleTool, {
+      match_type: "merchant",
+      match_value: "AIA",
+      category_id: insurance,
+      backfill: false,
+      dry_run: true,
+    });
+    expect(preview).toMatchObject({ would_reclassify: 0, moves: [] });
   });
 });
