@@ -11,13 +11,9 @@ import {
   seedMemberEmailsFromConfig,
 } from "./household.js";
 import { buildAccountJobs, runSync } from "./sync/index.js";
-import { buildMcpApp } from "./http/router.js";
+import { buildPublicApp, buildTailnetApp } from "./http/router.js";
 import { makeAuthorizer } from "./auth/authorize.js";
-import {
-  PROTECTED_RESOURCE_PATH,
-  makeAuthenticateMiddleware,
-  makeResourceMetadataHandler,
-} from "./auth/middleware.js";
+import { PROTECTED_RESOURCE_PATH } from "./auth/middleware.js";
 import { makeVerifierFromConfig } from "./auth/verify.js";
 
 /**
@@ -83,7 +79,7 @@ async function main(): Promise<void> {
       ? { memberId: tailnetMemberId, source: "tailnet" }
       : undefined;
 
-  const tailnetApp = buildMcpApp(ctx, { resolveActor: () => tailnetActor });
+  const tailnetApp = buildTailnetApp(ctx, tailnetActor);
   tailnetApp.listen(config.port, config.host, () => {
     console.log(
       `akahu-budget-mcp (tailnet) listening on http://${config.host}:${config.port}/mcp ` +
@@ -100,14 +96,7 @@ async function main(): Promise<void> {
       resolveMember: (email) => findMemberByEmail(ctx, email),
       resourceMetadataUrl,
     });
-    const publicApp = buildMcpApp(ctx, {
-      authenticate: makeAuthenticateMiddleware(authorize),
-      resolveActor: (req) => req.actor,
-      wellKnown: {
-        path: PROTECTED_RESOURCE_PATH,
-        handler: makeResourceMetadataHandler(auth),
-      },
-    });
+    const publicApp = buildPublicApp(ctx, { authorize, auth });
     publicApp.listen(config.publicPort, config.host, () => {
       console.log(
         `akahu-budget-mcp (public/oauth) listening on http://${config.host}:${config.publicPort}/mcp ` +

@@ -1,7 +1,7 @@
 import { and, eq, gte, lte } from "drizzle-orm";
-import { getDataAsOf, householdTimezone, type AppContext } from "../context.js";
+import { budgetMonthStartDay, getDataAsOf, householdTimezone, type AppContext } from "../context.js";
 import { budgetCategories, transactions } from "../db/schema.js";
-import { daysLeftInPeriod, localDate, periodLengthDays, type Period } from "../period.js";
+import { daysLeftInPeriod, localDate, periodForDate, periodLengthDays, type Period } from "../period.js";
 import { computeEnvelopes, findBudget, spendCountSql } from "./engine.js";
 
 export interface SpendingAllowance {
@@ -77,6 +77,14 @@ export function computeSpendingAllowance(ctx: AppContext, period: Period): Spend
     committed_overspend_cents: committedOverspend,
     uncategorized_spent_cents: uncategorizedSpent,
   };
+}
+
+/**
+ * The Period containing local today in the Household time zone. Only the
+ * Spending allowance surfaces use it; tools keep UTC resolution.
+ */
+export function householdCurrentPeriod(ctx: AppContext): Period {
+  return periodForDate(localDate(ctx.now(), householdTimezone(ctx)), budgetMonthStartDay(ctx));
 }
 
 // Sync runs nightly, so 36 hours means at least one sync was missed.
