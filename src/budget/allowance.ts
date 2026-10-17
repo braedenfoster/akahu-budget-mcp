@@ -1,7 +1,7 @@
 import { and, eq, gte, lte } from "drizzle-orm";
-import { budgetMonthStartDay, getDataAsOf, householdTimezone, type AppContext } from "../context.js";
+import { getDataAsOf, householdToday, type AppContext } from "../context.js";
 import { budgetCategories, transactions } from "../db/schema.js";
-import { daysLeftInPeriod, localDate, periodForDate, periodLengthDays, type Period } from "../period.js";
+import { daysLeftInPeriod, periodLengthDays, type Period } from "../period.js";
 import { computeEnvelopes, findBudget, spendCountSql } from "./engine.js";
 
 export interface SpendingAllowance {
@@ -32,8 +32,7 @@ export function computeSpendingAllowance(ctx: AppContext, period: Period): Spend
     .from(budgetCategories)
     .all();
   const uncategorizedId = categories.find((c) => c.isSystem)?.id;
-  const today = localDate(ctx.now(), householdTimezone(ctx));
-  const daysLeft = Math.min(daysLeftInPeriod(period, today), periodLengthDays(period));
+  const daysLeft = Math.min(daysLeftInPeriod(period, householdToday(ctx)), periodLengthDays(period));
 
   const dataAsOf = getDataAsOf(ctx);
 
@@ -101,14 +100,6 @@ export function computeAllocatedByKind(ctx: AppContext, period: Period): Allocat
     else totals.committed_cents += e.allocated_cents;
   }
   return totals;
-}
-
-/**
- * The Period containing local today in the Household time zone. Only the
- * Spending allowance surfaces use it; tools keep UTC resolution.
- */
-export function householdCurrentPeriod(ctx: AppContext): Period {
-  return periodForDate(localDate(ctx.now(), householdTimezone(ctx)), budgetMonthStartDay(ctx));
 }
 
 // Sync runs nightly, so 36 hours means at least one sync was missed.

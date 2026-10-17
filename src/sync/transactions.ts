@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
-import type { AppContext } from "../context.js";
+import { householdTimezone, type AppContext } from "../context.js";
+import { localDate } from "../period.js";
 import { dollarsToCents } from "../money.js";
 import { accounts, syncState, transactions } from "../db/schema.js";
 import type { AkahuClient, AkahuTransaction } from "../akahu/types.js";
@@ -34,7 +35,12 @@ interface TxnRow {
   updatedAt: string;
 }
 
-function toRow(txn: AkahuTransaction, homeCurrency: string, nowIso: string): TxnRow {
+function toRow(
+  txn: AkahuTransaction,
+  homeCurrency: string,
+  timeZone: string,
+  nowIso: string,
+): TxnRow {
   const amountCents = dollarsToCents(txn.amount);
   const type = txn.type ?? null;
   // `is_income` and `income_stream_id` are NOT set here: Income is decided by
@@ -44,7 +50,8 @@ function toRow(txn: AkahuTransaction, homeCurrency: string, nowIso: string): Txn
   return {
     akahuId: txn._id,
     accountId: txn._account,
-    date: txn.date.slice(0, 10),
+    // Akahu sends the bank's calendar date as local midnight in UTC.
+    date: localDate(new Date(txn.date), timeZone),
     amountCents,
     currency: txn.currency ?? homeCurrency,
     description: txn.description ?? "",
@@ -95,6 +102,7 @@ export async function syncTransactions(
   homeCurrency = "NZD",
 ): Promise<TransactionSyncResult> {
   const nowIso = ctx.now().toISOString();
+  const timeZone = householdTimezone(ctx);
   let inserted = 0;
   let updated = 0;
   let settled = 0;
@@ -121,7 +129,7 @@ export async function syncTransactions(
       const result = await job.client.listTransactions({ start, cursor });
       ctx.db.transaction(() => {
         for (const txn of result.items) {
-          const row = toRow(txn, homeCurrency, nowIso);
+          const row = toRow(txn, homeCurrency, timeZone, nowIso);
           const accountExists = ctx.db
             .select({ id: accounts.akahuId })
             .from(accounts)

@@ -5,6 +5,7 @@ import Database from "better-sqlite3";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import * as schema from "./schema.js";
+import { householdTimezoneOrDefault, localDate } from "../period.js";
 
 export type Db = BetterSQLite3Database<typeof schema> & {
   $client: Database.Database;
@@ -28,6 +29,12 @@ export function openDb(dbPath: string): Db {
   }
   const sqlite = new Database(dbPath);
   sqlite.pragma("foreign_keys = ON");
+  // Keep registered: migration 0009 calls local_date() and replays on every
+  // fresh database. SQLite has no time zone support.
+  sqlite.function("local_date", { deterministic: true }, (iso, timeZone) => {
+    const zone = householdTimezoneOrDefault(timeZone == null ? undefined : String(timeZone));
+    return localDate(new Date(String(iso)), zone);
+  });
   if (dbPath !== ":memory:") {
     sqlite.pragma("journal_mode = WAL");
   }

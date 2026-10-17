@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { openAndMigrate } from "../src/db/index.js";
 import { makeContext, type AppContext } from "../src/context.js";
 import { ensureConnection, ensureHousehold, ensureMember } from "../src/household.js";
@@ -34,4 +37,19 @@ export function seedConnection(
     akahuIndex,
     label: `${memberName} — Akahu ${akahuIndex}`,
   });
+}
+
+/** A copy of the migrations folder that stops just before the given tag. */
+export function migrationsBefore(tag: string): string {
+  const source = path.resolve(import.meta.dirname, "../drizzle");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "migrations-"));
+  const journal = JSON.parse(fs.readFileSync(path.join(source, "meta/_journal.json"), "utf8"));
+  const cut = journal.entries.findIndex((e: { tag: string }) => e.tag === tag);
+  journal.entries = journal.entries.slice(0, cut);
+  fs.mkdirSync(path.join(dir, "meta"));
+  fs.writeFileSync(path.join(dir, "meta/_journal.json"), JSON.stringify(journal));
+  for (const e of journal.entries) {
+    fs.copyFileSync(path.join(source, `${e.tag}.sql`), path.join(dir, `${e.tag}.sql`));
+  }
+  return dir;
 }

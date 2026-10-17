@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "./db/index.js";
 import { settings } from "./db/schema.js";
+import { householdTimezoneOrDefault, localDate } from "./period.js";
 import type { SyncResult } from "./sync/result.js";
 
 /**
@@ -60,7 +61,6 @@ export const SETTING_BUDGET_MONTH_START_DAY = "budget_month_start_day";
 export const SETTING_LAST_SYNC_AT = "last_sync_at";
 export const SETTING_HOME_CURRENCY = "home_currency";
 export const SETTING_HOUSEHOLD_TIMEZONE = "household_timezone";
-const DEFAULT_HOUSEHOLD_TIMEZONE = "Pacific/Auckland";
 
 export function getSetting(ctx: AppContext, key: string): string | undefined {
   const row = ctx.db
@@ -94,19 +94,16 @@ export function budgetMonthStartDay(ctx: AppContext): number {
 }
 
 /**
- * IANA time zone for the Spending allowance's local today (ADR-0011). Default
- * Pacific/Auckland; an unknown zone falls back to it. Other tools keep UTC
- * Period resolution.
+ * IANA time zone that sets the Household's calendar dates (ADR-0011). Default
+ * Pacific/Auckland; an unknown zone falls back to it.
  */
 export function householdTimezone(ctx: AppContext): string {
-  const raw = getSetting(ctx, SETTING_HOUSEHOLD_TIMEZONE);
-  if (!raw) return DEFAULT_HOUSEHOLD_TIMEZONE;
-  try {
-    new Intl.DateTimeFormat("en-NZ", { timeZone: raw });
-    return raw;
-  } catch {
-    return DEFAULT_HOUSEHOLD_TIMEZONE;
-  }
+  return householdTimezoneOrDefault(getSetting(ctx, SETTING_HOUSEHOLD_TIMEZONE));
+}
+
+/** Today's calendar date ("YYYY-MM-DD") in the Household time zone. */
+export function householdToday(ctx: AppContext): string {
+  return localDate(ctx.now(), householdTimezone(ctx));
 }
 
 /**

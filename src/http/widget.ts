@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { computeSpendingAllowance, householdCurrentPeriod } from "../budget/allowance.js";
+import { computeSpendingAllowance } from "../budget/allowance.js";
+import { resolvePeriod } from "../budget/engine.js";
 import type { AppContext } from "../context.js";
 
 /**
@@ -9,7 +10,7 @@ import type { AppContext } from "../context.js";
 export function buildWidgetRouter(ctx: AppContext): Router {
   const router = Router();
   router.get("/widget/summary", (_req, res) => {
-    res.json({ spending_allowance: computeSpendingAllowance(ctx, householdCurrentPeriod(ctx)) });
+    res.json({ spending_allowance: computeSpendingAllowance(ctx, resolvePeriod(ctx)) });
   });
   return router;
 }

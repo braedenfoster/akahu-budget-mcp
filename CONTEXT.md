@@ -73,7 +73,7 @@ _Avoid_: Other, misc, unknown
 ### The budget
 
 **Period**:
-A calendar month, stored as an explicit start/end date range. Governed by `budget_month_start_day` (default 1) so pay-cycle periods are a later config change, not a schema change.
+A calendar month, stored as an explicit start/end date range. Governed by `budget_month_start_day` (default 1) so pay-cycle periods are a later config change, not a schema change. Dates are calendar dates in the Household time zone (`household_timezone`).
 _Avoid_: Month (bare), cycle, term
 
 **Budget**:

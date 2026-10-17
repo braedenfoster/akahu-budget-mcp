@@ -266,14 +266,6 @@ describe("Spending allowance on get_budget (Seam 1)", () => {
     setKind(ctx, "Food", "flexible");
     expect(allowance(ctx).amount_cents).toBe(40000);
   });
-
-  it("get_budget keeps resolving its default Period in UTC", async () => {
-    // 00:30 on 1 Nov in Auckland; still 31 Oct in UTC.
-    const ctx = await setup([], "2026-10-31T11:30:00.000Z");
-    const budget = invokeTool(ctx, getBudgetTool, {});
-    expect(budget.period.key).toBe("2026-10");
-    expect(budget.spending_allowance).toMatchObject({ period: "2026-10", days_left: 0 });
-  });
 });
 
 describe("Committed and Flexible allocated totals on get_budget (Seam 1)", () => {

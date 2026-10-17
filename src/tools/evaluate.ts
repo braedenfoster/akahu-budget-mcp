@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getDataAsOf } from "../context.js";
+import { getDataAsOf, householdToday } from "../context.js";
 import { computeBudget, resolvePeriod } from "../budget/engine.js";
 import { evaluatePurchase } from "../analysis/evaluate.js";
 import { daysLeftInPeriod, periodView } from "../period.js";
@@ -29,7 +29,7 @@ export const evaluatePurchaseTool = defineTool({
       throw new Error(`No category with id ${input.category_id}.`);
     const period = resolvePeriod(ctx, input.period);
     const snapshot = computeBudget(ctx, period);
-    const daysLeft = daysLeftInPeriod(period, ctx.now().toISOString());
+    const daysLeft = daysLeftInPeriod(period, householdToday(ctx));
     const evaluation = evaluatePurchase(snapshot, input.amount_cents, input.category_id, daysLeft);
     return {
       period: periodView(period),

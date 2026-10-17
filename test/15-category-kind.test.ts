@@ -1,6 +1,4 @@
 import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { openDb, runMigrations } from "../src/db/index.js";
@@ -10,7 +8,7 @@ import { syncTransactions } from "../src/sync/transactions.js";
 import { listCategoriesTool, manageCategoriesTool } from "../src/tools/categories.js";
 import { invokeTool } from "../src/tools/types.js";
 import { FakeAkahuClient, sampleAccount, sampleTransaction } from "./fixtures/akahu.js";
-import { seedConnection, testContext } from "./helpers.js";
+import { migrationsBefore, seedConnection, testContext } from "./helpers.js";
 import { makeContext, putSetting, type AppContext } from "../src/context.js";
 import { auditLog, type CategoryKind } from "../src/db/schema.js";
 import { ReadOnlyError } from "../src/write.js";
@@ -23,21 +21,6 @@ async function setup(txns: ReturnType<typeof sampleTransaction>[]): Promise<AppC
   await syncTransactions(ctx, [{ connectionId, client }]);
   runCategorization(ctx);
   return ctx;
-}
-
-/** A copy of the migrations folder that stops just before the given tag. */
-function migrationsBefore(tag: string): string {
-  const source = path.resolve(import.meta.dirname, "../drizzle");
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "migrations-"));
-  const journal = JSON.parse(fs.readFileSync(path.join(source, "meta/_journal.json"), "utf8"));
-  const cut = journal.entries.findIndex((e: { tag: string }) => e.tag === tag);
-  journal.entries = journal.entries.slice(0, cut);
-  fs.mkdirSync(path.join(dir, "meta"));
-  fs.writeFileSync(path.join(dir, "meta/_journal.json"), JSON.stringify(journal));
-  for (const e of journal.entries) {
-    fs.copyFileSync(path.join(source, `${e.tag}.sql`), path.join(dir, `${e.tag}.sql`));
-  }
-  return dir;
 }
 
 function categoryId(ctx: AppContext, name: string): number {

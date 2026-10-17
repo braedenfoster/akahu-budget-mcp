@@ -18,4 +18,4 @@ The **Spending allowance** is one Household figure for the current Period, compu
 - Existing categories migrate to Committed, so the allowance starts too low rather than too high. Creating a category requires the flag.
 - A purchase funded from savings must be allocated (to a Committed Home projects Envelope) before it is paid; otherwise its spend lands as Uncategorized or Flexible overspend and drives the allowance far negative. Because savings drawdowns are not Income, Household headroom goes negative in that Period — accepted for now.
 - Refunds are classified as Unclassified income (ADR-0009), so a refund does not raise the allowance. Accepted as a known gap.
-- "Today" and days left for the allowance use the Household's local time zone; other tools keep their existing Period resolution.
+- "Today" and days left use the Household's local time zone (`household_timezone`). Every tool resolves the current Period from local today, and the sync stores each Transaction on its local calendar date. A UTC date would put `get_budget` and the allowance in different Periods for the first hours of each Period.

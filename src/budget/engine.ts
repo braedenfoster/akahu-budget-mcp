@@ -3,6 +3,7 @@ import type { AppContext } from "../context.js";
 import {
   budgetMonthStartDay,
   getSetting,
+  householdToday,
   SETTING_HOME_CURRENCY,
 } from "../context.js";
 import { budgetCategories, budgets, envelopes, transactions } from "../db/schema.js";
@@ -29,7 +30,7 @@ export const incomeNetSql = sql<number>`coalesce(sum(case when ${transactions.is
 export function resolvePeriod(ctx: AppContext, key?: string): Period {
   const startDay = budgetMonthStartDay(ctx);
   if (key) return periodFromKey(key, startDay);
-  return periodForDate(ctx.now().toISOString(), startDay);
+  return periodForDate(householdToday(ctx), startDay);
 }
 
 /** Look up a Budget by Period key, if it exists. */

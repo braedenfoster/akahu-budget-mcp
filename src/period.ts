@@ -4,8 +4,9 @@
  * 1 makes a Period a plain calendar month; a later value shifts the window so
  * pay-cycle Periods become config, not a schema change.
  *
- * All dates here are UTC calendar dates as "YYYY-MM-DD" strings, so Period math
- * is timezone-stable and comparisons are plain string comparisons.
+ * All dates here are Household calendar dates as "YYYY-MM-DD" strings. The math
+ * runs in UTC so day counts ignore daylight saving, and comparisons are plain
+ * string comparisons.
  */
 
 export interface Period {
@@ -115,6 +116,17 @@ export function daysLeftInPeriod(period: Period, asOf: string): number {
 /** Number of calendar days in the Period. */
 export function periodLengthDays(period: Period): number {
   return daysLeftInPeriod(period, period.startDate);
+}
+
+/** The Household time zone: `raw` if it is a known IANA zone, else Pacific/Auckland. */
+export function householdTimezoneOrDefault(raw: string | undefined): string {
+  if (!raw) return "Pacific/Auckland";
+  try {
+    new Intl.DateTimeFormat("en-NZ", { timeZone: raw });
+    return raw;
+  } catch {
+    return "Pacific/Auckland";
+  }
 }
 
 /** The calendar date ("YYYY-MM-DD") of `instant` in the given IANA time zone. */

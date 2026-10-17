@@ -91,6 +91,7 @@ Planned Purchases are not read.
 - Add a setting `household_timezone`, default `Pacific/Auckland`.
 - Use it only for the Spending allowance: local today, `days_left`, and the Period that the JSON route resolves.
 - Do not change Period resolution for other tools. That would change behaviour outside this spec.
+- Superseded by ticket 07: all tools and the sync now use the Household time zone.
 
 ### Output shape
 
