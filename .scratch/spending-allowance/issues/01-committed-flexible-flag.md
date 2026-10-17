@@ -8,11 +8,11 @@
 
 Spec: `.scratch/spending-allowance/spec.md` (Schema, Tools)
 
-- [ ] The migration adds the flag and sets every existing category, including Uncategorized, to Committed
-- [ ] `list_categories` returns each category's flag
-- [ ] `manage_categories` `create` refuses a request without the flag and accepts `committed` or `flexible`
-- [ ] A new `manage_categories` `set_kind` action changes a category's flag
-- [ ] `set_kind` on the Uncategorized system category is refused
-- [ ] `merge` keeps the target category's flag
-- [ ] `create` and `set_kind` are audited and refused in read-only mode
-- [ ] Seam 1 tests cover each criterion above
+- [x] The migration adds the flag and sets every existing category, including Uncategorized, to Committed
+- [x] `list_categories` returns each category's flag
+- [x] `manage_categories` `create` refuses a request without the flag and accepts `committed` or `flexible`
+- [x] A new `manage_categories` `set_kind` action changes a category's flag
+- [x] `set_kind` on the Uncategorized system category is refused
+- [x] `merge` keeps the target category's flag
+- [x] `create` and `set_kind` are audited and refused in read-only mode
+- [x] Seam 1 tests cover each criterion above

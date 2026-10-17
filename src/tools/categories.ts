@@ -1,11 +1,12 @@
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { budgetMonthStartDay, getDataAsOf } from "../context.js";
-import { budgetCategories, transactions } from "../db/schema.js";
+import { budgetCategories, CATEGORY_KINDS, transactions } from "../db/schema.js";
 import { formatCents } from "../money.js";
 import { periodFromKey } from "../period.js";
 import { withWrite } from "../write.js";
 import {
+  categoryByName,
   categoryExists,
   ensureCategoryByName,
   ensureUncategorized,
@@ -21,7 +22,7 @@ import { periodKeySchema } from "./schemas.js";
 export const listCategoriesTool = defineTool({
   name: "list_categories",
   description:
-    "List all Budget Categories (including the system Uncategorized) with the number of Transactions currently assigned to each. Read-only with data-as-of.",
+    "List all Budget Categories (including the system Uncategorized) with each one's kind (committed or flexible) and the number of Transactions currently assigned to it. Read-only with data-as-of.",
   inputSchema: {},
   handler: (ctx) => {
     ensureUncategorized(ctx);
@@ -30,6 +31,7 @@ export const listCategoriesTool = defineTool({
         id: budgetCategories.id,
         name: budgetCategories.name,
         isSystem: budgetCategories.isSystem,
+        kind: budgetCategories.kind,
         count: sql<number>`count(${transactions.akahuId})`,
       })
       .from(budgetCategories)
@@ -41,6 +43,7 @@ export const listCategoriesTool = defineTool({
         id: r.id,
         name: r.name,
         is_system: r.isSystem,
+        kind: r.kind,
         transaction_count: r.count,
       })),
       data_as_of: getDataAsOf(ctx),
@@ -49,17 +52,19 @@ export const listCategoriesTool = defineTool({
 });
 
 /**
- * Create, rename, or merge Budget Categories (user story 22). Audited and
- * read-only-aware. Merge reassigns Transactions + rules to the target then
- * removes the now-empty source category (its Transactions keep reconciling).
+ * Create, rename, set the kind of, or merge Budget Categories (user story 22).
+ * Audited and read-only-aware. Merge reassigns Transactions + rules to the
+ * target then removes the now-empty source category (its Transactions keep
+ * reconciling).
  */
 export const manageCategoriesTool = defineTool({
   name: "manage_categories",
   description:
-    "Create, rename, or merge Budget Categories. create: {name}. rename: {id, new_name}. merge: {source_id, target_id}. Audited; refused in read-only mode.",
+    "Create, rename, set the kind of, or merge Budget Categories. Every category is committed (recurring payments, savings, debt repayment, sinking funds) or flexible (variable spending); ask the Member which before creating one. create: {name, kind}. rename: {id, new_name}. set_kind: {id, kind} (not allowed on Uncategorized). merge: {source_id, target_id} (the target keeps its kind). Audited; refused in read-only mode.",
   inputSchema: {
-    action: z.enum(["create", "rename", "merge"]),
+    action: z.enum(["create", "rename", "set_kind", "merge"]),
     name: z.string().min(1).optional(),
+    kind: z.enum(CATEGORY_KINDS).optional(),
     id: z.number().int().optional(),
     new_name: z.string().min(1).optional(),
     source_id: z.number().int().optional(),
@@ -67,12 +72,22 @@ export const manageCategoriesTool = defineTool({
   },
   handler: (ctx, input) => {
     if (input.action === "create") {
-      if (!input.name) throw new Error("create requires `name`.");
-      const name = input.name;
+      if (!input.name || !input.kind)
+        throw new Error("create requires `name` and `kind` (committed or flexible).");
+      const { name, kind } = input;
+      const existing = categoryByName(ctx, name);
+      if (existing && existing.kind !== kind)
+        throw new Error(
+          `Category ${name} already exists as ${existing.kind}; use set_kind to change it.`,
+        );
       return withWrite(
         ctx,
-        { tool: "manage_categories", summary: `create category ${name}`, payload: { name } },
-        () => ({ id: ensureCategoryByName(ctx, name), name }),
+        {
+          tool: "manage_categories",
+          summary: `create ${kind} category ${name}`,
+          payload: { name, kind },
+        },
+        () => ({ ...ensureCategoryByName(ctx, name, kind), name }),
       );
     }
     if (input.action === "rename") {
@@ -94,6 +109,27 @@ export const manageCategoriesTool = defineTool({
             .where(eq(budgetCategories.id, id))
             .run();
           return { id, name: new_name };
+        },
+      );
+    }
+    if (input.action === "set_kind") {
+      if (input.id === undefined || !input.kind)
+        throw new Error("set_kind requires `id` and `kind` (committed or flexible).");
+      const { id, kind } = input;
+      if (!categoryExists(ctx, id)) throw new Error(`No category with id ${id}.`);
+      // The Spending allowance has its own rule for Uncategorized spend (ADR-0011).
+      if (isSystemCategory(ctx, id))
+        throw new Error("The Uncategorized category's kind cannot be changed.");
+      return withWrite(
+        ctx,
+        {
+          tool: "manage_categories",
+          summary: `set category ${id} kind -> ${kind}`,
+          payload: { id, kind },
+        },
+        () => {
+          ctx.db.update(budgetCategories).set({ kind }).where(eq(budgetCategories.id, id)).run();
+          return { id, kind };
         },
       );
     }

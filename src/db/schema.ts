@@ -192,6 +192,9 @@ export const syncState = sqliteTable("sync_state", {
 
 // --- Ticket 04: budget categories + mapping rules -------------------------
 
+export const CATEGORY_KINDS = ["committed", "flexible"] as const;
+export type CategoryKind = (typeof CATEGORY_KINDS)[number];
+
 /**
  * Household-defined Budget Categories (ADR-0007). Exactly one is the system
  * `Uncategorized` catch-all (isSystem = true) so totals always reconcile.
@@ -200,6 +203,9 @@ export const budgetCategories = sqliteTable("budget_categories", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull().unique(),
   isSystem: integer("is_system", { mode: "boolean" }).notNull().default(false),
+  // Defaults to committed so unflagged categories understate the Spending
+  // allowance rather than overstate it (ADR-0011).
+  kind: text("kind", { enum: CATEGORY_KINDS }).notNull().default("committed"),
   createdAt: text("created_at").notNull(),
 });
 

@@ -1,6 +1,6 @@
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import type { AppContext } from "../context.js";
-import { budgetCategories, mappingRules, transactions } from "../db/schema.js";
+import { budgetCategories, mappingRules, transactions, type CategoryKind } from "../db/schema.js";
 import { buildMatcher, type MatchFields } from "../matching/matcher.js";
 import { runIncomeClassification } from "../income/engine.js";
 
@@ -21,19 +21,22 @@ export function ensureUncategorized(ctx: AppContext): number {
     .get().id;
 }
 
-/** Ensure a Budget Category with the given name exists; return its id. */
-export function ensureCategoryByName(ctx: AppContext, name: string): number {
-  const existing = ctx.db
-    .select({ id: budgetCategories.id })
-    .from(budgetCategories)
-    .where(eq(budgetCategories.name, name))
-    .get();
-  if (existing) return existing.id;
+/**
+ * Ensure a Budget Category with the given name exists. `kind` applies only when
+ * the category is new; an existing category keeps its own. Returns the stored row.
+ */
+export function ensureCategoryByName(
+  ctx: AppContext,
+  name: string,
+  kind?: CategoryKind,
+): { id: number; kind: CategoryKind } {
+  const existing = categoryByName(ctx, name);
+  if (existing) return existing;
   return ctx.db
     .insert(budgetCategories)
-    .values({ name, isSystem: false, createdAt: ctx.now().toISOString() })
-    .returning({ id: budgetCategories.id })
-    .get().id;
+    .values({ name, isSystem: false, kind, createdAt: ctx.now().toISOString() })
+    .returning({ id: budgetCategories.id, kind: budgetCategories.kind })
+    .get();
 }
 
 /**
@@ -50,7 +53,7 @@ export function seedRulesFromTransactions(ctx: AppContext): void {
     .all();
   for (const { group } of groups) {
     if (!group) continue;
-    const categoryId = ensureCategoryByName(ctx, group);
+    const categoryId = ensureCategoryByName(ctx, group).id;
     ctx.db
       .insert(mappingRules)
       .values({
@@ -184,6 +187,17 @@ export function isSystemCategory(ctx: AppContext, categoryId: number): boolean {
     .where(eq(budgetCategories.id, categoryId))
     .get();
   return row?.isSystem ?? false;
+}
+
+export function categoryByName(
+  ctx: AppContext,
+  name: string,
+): { id: number; kind: CategoryKind } | undefined {
+  return ctx.db
+    .select({ id: budgetCategories.id, kind: budgetCategories.kind })
+    .from(budgetCategories)
+    .where(eq(budgetCategories.name, name))
+    .get();
 }
 
 /** Guard: does a category exist? */

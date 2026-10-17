@@ -48,7 +48,11 @@ function categoryIdByName(ctx: AppContext, name: string): number {
 }
 
 function createCategory(ctx: AppContext, name: string): number {
-  const created = invokeTool(ctx, manageCategoriesTool, { action: "create", name }) as {
+  const created = invokeTool(ctx, manageCategoriesTool, {
+    action: "create",
+    name,
+    kind: "committed",
+  }) as {
     id: number;
   };
   return created.id;
@@ -216,7 +220,7 @@ describe("ticket 04 — categorization (Seam 1)", () => {
     const ctx = await setup([]);
     putSetting(ctx, "read_only", "true");
     expect(() =>
-      invokeTool(ctx, manageCategoriesTool, { action: "create", name: "Nope" }),
+      invokeTool(ctx, manageCategoriesTool, { action: "create", name: "Nope", kind: "flexible" }),
     ).toThrow(ReadOnlyError);
   });
 });

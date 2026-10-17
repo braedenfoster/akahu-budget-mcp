@@ -57,6 +57,13 @@
       "when": 1784680761094,
       "tag": "0007_amusing_karma",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1792208098356,
+      "tag": "0008_heavy_sleeper",
+      "breakpoints": true
     }
   ]
 }

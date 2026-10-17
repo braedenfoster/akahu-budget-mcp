@@ -1,0 +1,1 @@
+ALTER TABLE `budget_categories` ADD `kind` text DEFAULT 'committed' NOT NULL;
