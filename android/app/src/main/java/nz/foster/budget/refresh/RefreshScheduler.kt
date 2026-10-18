@@ -16,7 +16,7 @@ val HOUSEHOLD_ZONE: ZoneId = ZoneId.of("Pacific/Auckland")
 
 object RefreshScheduler {
     private const val PERIODIC = "allowance-refresh-every-3h"
-    private const val MIDNIGHT = "allowance-refresh-midnight"
+    private const val MIDNIGHT_PREFIX = "allowance-refresh-midnight-"
     private const val NOW = "allowance-refresh-now"
 
     private val network = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
@@ -30,14 +30,15 @@ object RefreshScheduler {
         scheduleMidnight(context)
     }
 
-    // KEEP is a no-op while the midnight run itself is running, so the next
-    // midnight run is queued by the following 3-hourly run or app start.
-    fun scheduleMidnight(context: Context, now: Instant = Instant.now()) {
+    // The date in the name lets a running midnight fetch queue the next one;
+    // KEEP alone would skip it while the current one is still running.
+    fun scheduleMidnight(context: Context) {
+        val run = nextMidnightRun(Instant.now(), HOUSEHOLD_ZONE)
         WorkManager.getInstance(context).enqueueUniqueWork(
-            MIDNIGHT,
+            "$MIDNIGHT_PREFIX${run.date}",
             ExistingWorkPolicy.KEEP,
             OneTimeWorkRequestBuilder<AllowanceRefreshWorker>()
-                .setInitialDelay(delayUntilAfterMidnight(now, HOUSEHOLD_ZONE))
+                .setInitialDelay(run.delay)
                 .setConstraints(network)
                 .build(),
         )

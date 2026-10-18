@@ -2,12 +2,18 @@ package nz.foster.budget.refresh
 
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 
-/** Time from [now] to [after] past the next local midnight in [zone], measured in elapsed time. */
-fun delayUntilAfterMidnight(now: Instant, zone: ZoneId, after: Duration = Duration.ofMinutes(5)): Duration {
+private val AFTER_MIDNIGHT: Duration = Duration.ofMinutes(5)
+
+/** The fetch that rolls [date] over, and the elapsed time until it is due. */
+data class MidnightRun(val date: LocalDate, val delay: Duration)
+
+fun nextMidnightRun(now: Instant, zone: ZoneId): MidnightRun {
     val today = now.atZone(zone).toLocalDate()
-    val tonight = today.atStartOfDay(zone).plus(after).toInstant()
-    val target = if (tonight.isAfter(now)) tonight else today.plusDays(1).atStartOfDay(zone).plus(after).toInstant()
-    return Duration.between(now, target)
+    val date = if (slot(today, zone).isAfter(now)) today else today.plusDays(1)
+    return MidnightRun(date, Duration.between(now, slot(date, zone)))
 }
+
+private fun slot(date: LocalDate, zone: ZoneId): Instant = date.atStartOfDay(zone).plus(AFTER_MIDNIGHT).toInstant()
