@@ -10,7 +10,7 @@ Spec: `.scratch/native-android-app/spec.md` (Auth, App)
 
 - [x] `android/` builds with Gradle; `applicationId` `nz.foster.budget`, app name "Budget", `minSdk` 31
 - [x] The release build reads the keystore path and passwords from outside the repo
-- [ ] AppAuth runs PKCE sign-in in a Custom Tab against the existing auth page
+- [x] AppAuth runs PKCE sign-in in a Custom Tab against the existing auth page
 - [x] The app requests `offline_access` and stores the refresh token encrypted with Android Keystore
 - [x] The app refreshes the access token when it expires
 - [x] A failed refresh clears the token and any cached figure, and moves the app to the signed-out state
@@ -26,3 +26,5 @@ Spec: `.scratch/native-android-app/spec.md` (Auth, App)
 - Risks for the phone check:
   - AppAuth validates the ID token (issuer, audience, nonce) during the code exchange. If Stytch's `id_token` `iss` differs from the discovery `issuer`, the exchange fails with an ID-token error.
   - Discovery uses `AUTH_ISSUER/.well-known/openid-configuration`. That returns 400 until the Stytch Authorization URL is set.
+- 19 Oct 2026, ticket 07 phone check (Pixel 8 Pro, Android 17, release APK): PKCE sign-in works end to end. Discovery, the relay hand-off (no "Open Budget" tap needed), the code exchange and the ID-token check all pass. Neither listed risk occurred.
+- The first attempt failed with "redirect URL not registered". `deploy/.env` held a stale client_id, and the Stytch redirect URL had a typo (`pixelsprout1`). Braeden fixed both outside the repo.

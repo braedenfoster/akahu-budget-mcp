@@ -1,13 +1,18 @@
 package nz.foster.budget.ui
 
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -49,28 +54,35 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The app has only a light colour scheme, so the system bars always need dark icons.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
+        )
         authService = AuthorizationService(this)
         signIn = AppAuthSignIn(appGraph.config, authService)
 
         setContent {
             MaterialTheme {
                 Surface(Modifier.fillMaxSize()) {
-                    val authState by appGraph.auth.state.collectAsStateWithLifecycle()
-                    LaunchedEffect(authState) { appGraph.allowance.reload() }
-                    when (authState) {
-                        AuthState.SignedOut -> SignedOutScreen(
-                            missingConfig = appGraph.config.missingKeys,
-                            error = signInError,
-                            onSignIn = ::startSignIn,
-                        )
-                        AuthState.SignedIn -> {
-                            val snapshot by appGraph.allowance.snapshot.collectAsStateWithLifecycle()
-                            SpendingAllowanceScreen(
-                                model = allowanceScreenModel(snapshot),
-                                refreshing = refreshing,
-                                onRefresh = ::refresh,
-                                onSignOut = { lifecycleScope.launch { appGraph.auth.signOut() } },
+                    Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+                        val authState by appGraph.auth.state.collectAsStateWithLifecycle()
+                        LaunchedEffect(authState) { appGraph.allowance.reload() }
+                        when (authState) {
+                            AuthState.SignedOut -> SignedOutScreen(
+                                missingConfig = appGraph.config.missingKeys,
+                                error = signInError,
+                                onSignIn = ::startSignIn,
                             )
+                            AuthState.SignedIn -> {
+                                val snapshot by appGraph.allowance.snapshot.collectAsStateWithLifecycle()
+                                SpendingAllowanceScreen(
+                                    model = allowanceScreenModel(snapshot),
+                                    refreshing = refreshing,
+                                    onRefresh = ::refresh,
+                                    onSignOut = { lifecycleScope.launch { appGraph.auth.signOut() } },
+                                )
+                            }
                         }
                     }
                 }

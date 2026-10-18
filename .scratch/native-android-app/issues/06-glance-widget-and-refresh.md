@@ -12,7 +12,7 @@ Spec: `.scratch/native-android-app/spec.md` (Widget, Refresh)
 - [x] Unit tests cover every row of the spec's widget state table: ok, over, no budget, stale, signed out, offline
 - [x] The Uncategorized badge shows when `uncategorized_count > 0`, in every state that shows a number (unit test)
 - [ ] The Glance widget renders each state, at about 3×1 and resizable
-- [ ] Tapping the widget opens the app
+- [x] Tapping the widget opens the app
 - [ ] WorkManager fetches every 3 hours with a network constraint
 - [ ] One fetch runs shortly after local midnight in `Pacific/Auckland`
 - [x] The app never calls a sync or `force` refresh
@@ -39,3 +39,5 @@ Spec: `.scratch/native-android-app/spec.md` (Widget, Refresh)
   - The tap that opens the app.
   - Real 3-hourly and midnight scheduling.
 - Doze can delay the midnight job until the next maintenance window.
+- 19 Oct 2026, ticket 07 phone check: the widget showed the ok state ($2,506.66, $649.87 / week, 27 days left), the offline mark, and "Sign in". A tap on the widget opened the app. Nobody has checked the over, no budget and stale states, or a resized widget.
+- At 10:41 the phone had the midnight job queued for about 00:05, and the periodic job for about 2 h 49 m later. After the jobs run, tick the scheduling items.
