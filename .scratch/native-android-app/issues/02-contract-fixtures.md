@@ -4,11 +4,11 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 Spec: `.scratch/native-android-app/spec.md` (Contract)
 
-- [ ] `contracts/spending-allowance.{ok,over,no_budget,stale}.json` exist and are committed
-- [ ] The files come from the real route against a fixed clock and seeded data, not hand-written JSON
-- [ ] The test fails if a generated response differs from the committed file
-- [ ] A short note in `contracts/README.md` says how to regenerate the files
+- [x] `contracts/spending-allowance.{ok,over,no_budget,stale}.json` exist and are committed
+- [x] The files come from the real route against a fixed clock and seeded data, not hand-written JSON
+- [x] The test fails if a generated response differs from the committed file
+- [x] A short note in `contracts/README.md` says how to regenerate the files
