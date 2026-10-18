@@ -3,6 +3,7 @@ package nz.foster.budget.ui
 import java.time.Instant
 import nz.foster.budget.allowance.AllowanceSnapshot
 import nz.foster.budget.allowance.AmountTone
+import nz.foster.budget.allowance.spendingRing
 import nz.foster.budget.api.contractAllowance
 import nz.foster.budget.auth.AuthState
 import nz.foster.budget.cache.FetchFailure
@@ -91,5 +92,21 @@ class AllowanceScreenModelTest {
         assertNull(screen.allowance)
         assertNull(screen.lastChecked)
         assertNull(screen.lastFailure)
+    }
+
+    @Test
+    fun `every state carries the widget's ring model`() {
+        for (state in listOf("ok", "over", "stale", "no_budget")) {
+            assertEquals(state, spendingRing(contractAllowance(state)), model(state).allowance!!.ring)
+        }
+        assertNull(model("no_budget").allowance!!.ring)
+    }
+
+    @Test
+    fun `a failed last fetch keeps the ring of the cached response`() {
+        assertEquals(
+            model("ok").allowance!!.ring,
+            model("ok", LastFetch.Failed(checkedAt + 1, FetchFailure.Offline)).allowance!!.ring,
+        )
     }
 }

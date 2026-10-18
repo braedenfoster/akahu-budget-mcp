@@ -1,11 +1,13 @@
 package nz.foster.budget.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -15,13 +17,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import nz.foster.budget.R
 import nz.foster.budget.allowance.AmountTone
+import nz.foster.budget.allowance.SpendingRing
 import nz.foster.budget.cache.FetchFailure
 
 @Composable
@@ -74,12 +81,21 @@ fun SpendingAllowanceScreen(
 
 @Composable
 private fun Headline(allowance: AllowanceModel) {
-    val amountColor = when (allowance.tone) {
-        AmountTone.Over -> MaterialTheme.colorScheme.error
-        AmountTone.Stale -> MaterialTheme.colorScheme.onSurfaceVariant
-        AmountTone.Normal -> Color.Unspecified
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // The weight keeps the ring from pushing the amount off a narrow screen.
+        HeadlineText(allowance, Modifier.weight(1f))
+        allowance.ring?.let { Ring(it) }
     }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+}
+
+@Composable
+private fun HeadlineText(allowance: AllowanceModel, modifier: Modifier) {
+    val amountColor = toneColor(allowance.tone, normal = Color.Unspecified)
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (allowance.amount != null) {
             Text(allowance.amount, style = MaterialTheme.typography.displayMedium, color = amountColor)
         } else {
@@ -92,6 +108,32 @@ private fun Headline(allowance: AllowanceModel) {
         val perWeek = allowance.perWeek?.let { stringResource(R.string.per_week, it) }
         Text(listOfNotNull(perWeek, daysLeft).joinToString(" · "), style = MaterialTheme.typography.titleMedium)
     }
+}
+
+private val RING_SIZE = 56.dp
+private val RING_STROKE = 6.dp
+private const val TRACK_ALPHA = 0.25f
+
+@Composable
+private fun Ring(ring: SpendingRing) {
+    val color = toneColor(ring.tone, normal = MaterialTheme.colorScheme.primary)
+    Canvas(Modifier.size(RING_SIZE)) {
+        val strokePx = RING_STROKE.toPx()
+        val inset = strokePx / 2
+        val arcSize = size.copy(width = size.width - strokePx, height = size.height - strokePx)
+        val topLeft = Offset(inset, inset)
+        drawArc(color.copy(alpha = TRACK_ALPHA), 0f, 360f, false, topLeft, arcSize, style = Stroke(strokePx))
+        if (ring.fill > 0f) {
+            drawArc(color, -90f, ring.fill * 360f, false, topLeft, arcSize, style = Stroke(strokePx, cap = StrokeCap.Round))
+        }
+    }
+}
+
+@Composable
+private fun toneColor(tone: AmountTone, normal: Color): Color = when (tone) {
+    AmountTone.Over -> MaterialTheme.colorScheme.error
+    AmountTone.Stale -> MaterialTheme.colorScheme.onSurfaceVariant
+    AmountTone.Normal -> normal
 }
 
 @Composable

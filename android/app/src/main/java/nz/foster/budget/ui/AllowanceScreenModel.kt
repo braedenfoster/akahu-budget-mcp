@@ -3,10 +3,12 @@ package nz.foster.budget.ui
 import java.time.Instant
 import nz.foster.budget.allowance.AllowanceSnapshot
 import nz.foster.budget.allowance.AmountTone
+import nz.foster.budget.allowance.SpendingRing
 import nz.foster.budget.allowance.amountTone
 import nz.foster.budget.allowance.formatMonth
 import nz.foster.budget.allowance.formatNzd
 import nz.foster.budget.allowance.householdDateFormat
+import nz.foster.budget.allowance.spendingRing
 import nz.foster.budget.api.AllowanceStatus
 import nz.foster.budget.api.SpendingAllowance
 import nz.foster.budget.cache.FetchFailure
@@ -34,6 +36,8 @@ data class AllowanceModel(
     val uncategorizedCount: Int,
     val dataAsOf: String?,
     val stale: Boolean,
+    /** Null when the Period has no Budget or the Flexible allocation is 0 or missing, so no ring is drawn. */
+    val ring: SpendingRing?,
 )
 
 private val timestampFormat = householdDateFormat("d MMM yyyy, h:mm a")
@@ -56,4 +60,5 @@ private fun allowanceModel(a: SpendingAllowance) = AllowanceModel(
     uncategorizedCount = a.uncategorizedCount,
     dataAsOf = a.dataAsOf?.let(timestampFormat::format),
     stale = a.stale,
+    ring = spendingRing(a),
 )
