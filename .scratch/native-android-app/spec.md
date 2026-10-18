@@ -83,9 +83,11 @@ Build a native Android app for both Members.
 | no budget | `status = no_budget` | "No budget for <month>" |
 | stale | `stale = true` | The number greyed out, with "as of <Data-as-of date>" |
 | signed out | Token refresh failed, or never signed in | "Sign in" |
+| not loaded yet | Signed in, but no good response is cached yet | "Tap to load" |
 | offline | Fetch failed (network or server down) | Last good value, small "offline" mark |
 
 - Show the Uncategorized badge when `uncategorized_count > 0`, in every state that shows a number.
+- If `stale` and `status = over` are both true, show the amount in the warning colour. The "as of <Data-as-of date>" label shows that the value is stale.
 - `stale` and offline are separate failures. Stale comes from the server (old Akahu sync). Offline comes from the phone (could not reach the server).
 
 ### Refresh
