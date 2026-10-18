@@ -15,4 +15,4 @@ The app requires every contract field. If a new app reads an old server, it cann
 - [ ] `get_budget` returns `flexible_allocated_cents` and `period_days`
 - [ ] Build the signed release APK, and install it on both phones
 - [ ] On each phone, the widget ring and the in-app ring match `get_budget`: spent share and Period position
-- [ ] The widget ring stays legible at about 3×1 and when resized
+- [ ] The widget ring stays legible at about 3×1 and when resized. Below 240dp wide, the widget shows no ring

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -13,10 +14,12 @@ import androidx.glance.GlanceTheme
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
+import androidx.glance.LocalSize
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
+import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
@@ -43,6 +46,8 @@ import nz.foster.budget.refresh.RefreshScheduler
 import nz.foster.budget.ui.MainActivity
 
 class BudgetWidget : GlanceAppWidget() {
+    override val sizeMode = SizeMode.Responsive(setOf(DpSize(110.dp, 40.dp), DpSize(RING_MIN_WIDGET_WIDTH, 40.dp)))
+
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val allowance = context.appGraph.allowance
         allowance.reload()
@@ -109,7 +114,7 @@ private fun AllowanceContent(state: WidgetState.Allowance) {
                 showsOfflineMark = state.showsOfflineMark,
             )
         }
-        state.ring?.let {
+        ringAtWidth(state.ring, LocalSize.current.width)?.let {
             Spacer(GlanceModifier.width(12.dp))
             Ring(it)
         }

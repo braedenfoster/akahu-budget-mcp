@@ -1,5 +1,7 @@
 package nz.foster.budget.widget
 
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import nz.foster.budget.allowance.AllowanceSnapshot
 import nz.foster.budget.allowance.AmountTone
 import nz.foster.budget.allowance.SpendingRing
@@ -40,6 +42,12 @@ sealed interface WidgetState {
 }
 
 private val asOfFormat = householdDateFormat("d MMM")
+
+/** Narrower than this, the ring squeezes the amount onto two lines, and the amount matters more. */
+internal val RING_MIN_WIDGET_WIDTH = 240.dp
+
+fun ringAtWidth(ring: SpendingRing?, widgetWidth: Dp): SpendingRing? =
+    ring?.takeIf { widgetWidth >= RING_MIN_WIDGET_WIDTH }
 
 fun widgetState(snapshot: AllowanceSnapshot): WidgetState {
     if (snapshot.auth == AuthState.SignedOut) return WidgetState.SignedOut

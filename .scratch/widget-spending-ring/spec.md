@@ -53,6 +53,7 @@ A ring shows the share of the Flexible allocation that is spent. A tick on the r
 
 - Glance has no determinate circular indicator. The widget draws the ring on a bitmap and shows it as an image at the right edge of the row.
 - The ring must stay legible at about 3×1 and when resized.
+- If the widget is narrower than 240dp, the widget hides the ring. At 2 cells (about 196dp on a Pixel 8 Pro), the ring made the amount wrap onto two lines. The amount is more important than the ring.
 
 ### In-app screen
 
