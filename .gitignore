@@ -42,3 +42,15 @@ coverage/
 
 # Budget exports (CSV etc.) — local financial data, never commit
 exports/
+
+# Android (android/): Gradle state, build outputs, local config, and signing keys
+android/.gradle/
+android/.kotlin/
+android/**/build/
+android/local.properties
+android/captures/
+android/app/release/
+*.apk
+*.aab
+*.jks
+*.keystore
