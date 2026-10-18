@@ -13,7 +13,7 @@ import { MEMBER_BEARER, getOnce, publicTestApp } from "./http-helpers.js";
 const CONTRACTS_DIR = path.resolve(import.meta.dirname, "../contracts");
 const UPDATE = process.env.UPDATE_CONTRACTS === "1";
 
-// 2026-10-15 21:00 in Auckland (NZDT): 17 days left in October.
+// 2026-10-15 21:00 in Auckland (NZDT).
 const MID_OCTOBER = "2026-10-15T08:00:00.000Z";
 
 async function seeded(foodSpentDollars: number, allocateFood: boolean): Promise<AppContext> {
