@@ -32,7 +32,7 @@ The build reads each value below from the first source that sets it:
 
 | Key | Used for | Example |
 |---|---|---|
-| `STYTCH_ANDROID_CLIENT_ID` | Stytch Connected App `client_id` (ticket 03) | `connected-app-live-…` |
+| `STYTCH_ANDROID_CLIENT_ID` | Stytch Connected App `client_id`. Create it with "Android Connected App" in `deploy/phase2-funnel-oauth.md` | `connected-app-live-…` |
 | `AUTH_ISSUER` | Stytch issuer for OAuth discovery | `https://<slug>.customers.stytch.dev` |
 | `PUBLIC_URL` | Base URL of the public listener for `/api` calls | `https://<host>.<tailnet>.ts.net` |
 | `ANDROID_KEYSTORE_PATH` | Release keystore file (`~/` is expanded) | `~/keys/budget-release.jks` |

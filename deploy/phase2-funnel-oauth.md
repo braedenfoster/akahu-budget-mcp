@@ -34,8 +34,8 @@ server. Funnel on **443** path-routes between them:
 
 ```
 https://<your-host>.<your-tailnet>.ts.net
-   ├─ /mcp  + /.well-known/oauth-protected-resource + /healthz  → MCP public listener 127.0.0.1:3443 (OAuth)
-   └─ /oauth/authorize (+ SPA assets)                            → static Stytch auth page 127.0.0.1:8088
+   ├─ /mcp  + /api + /.well-known/oauth-protected-resource + /healthz  → MCP public listener 127.0.0.1:3443 (OAuth)
+   └─ /oauth/authorize (+ SPA assets)                                  → static Stytch auth page 127.0.0.1:8088
 ```
 
 | Component        | Port (localhost) | Auth                         | Reached by |
@@ -43,6 +43,7 @@ https://<your-host>.<your-tailnet>.ts.net
 | MCP tailnet      | `PORT` (3000)    | none — WireGuard is the auth | Claude Desktop, via `tailscale serve` / MagicDNS |
 | Widget (tailnet) | `PORT` (3000), `/widget` only | none — WireGuard is the auth | Phone widget, via `tailscale serve` HTTPS `:8443` |
 | MCP public       | `PUBLIC_PORT` (3443) | OAuth 2.1 (Stytch JWT)   | ChatGPT / remote Claude, via Funnel `/mcp` |
+| App API (public) | `PUBLIC_PORT` (3443), `/api` only | OAuth 2.1 (Stytch JWT) | Android app, via Funnel `/api` (ADR-0013) |
 | Auth page        | 8088             | Stytch B2B login (Email OTP) | The OAuth consent step, via Funnel `/oauth` |
 
 The security boundary is **network-enforced**: Funnel forwards only to these
@@ -90,6 +91,28 @@ Project type: **B2B**. Create a Connected App (first-party public) with DCR
    `https://<your-host>.<your-tailnet>.ts.net/oauth/authorize`.
    Until this is set, `/.well-known/oauth-authorization-server` returns 400 —
    expected.
+
+### Android Connected App (ADR-0013)
+
+The Android app uses the same Stytch project, Organization, Members, access-token
+template and Authorization URL as the MCP connectors. It needs its own Connected
+App, because no DCR client allows the app's redirect URI. The app does not use DCR.
+
+1. Confirm that the access-token template from dashboard step 4 is saved (see the
+   snapshot warning there).
+2. **Connected Apps → Create**: first-party, **public** (no client secret), PKCE.
+   Create a new Connected App. Do not reuse an older one, because it can predate
+   the template.
+3. **Redirect URI**: `nz.foster.budget:/oauth/callback`.
+4. **Scopes**: `openid email profile offline_access`. Without `offline_access`,
+   Stytch issues no refresh token and the Member must sign in again each time the
+   access token expires.
+5. Copy the `client_id` into the git-ignored `deploy/.env` as
+   `STYTCH_ANDROID_CLIENT_ID`. The `client_id` is not a secret. The Android build
+   also needs `AUTH_ISSUER` and `PUBLIC_URL` (see `android/README.md`).
+6. Confirm each Member's email is in `AUTH_MEMBER_EMAILS` on the host. A token
+   for any other email gets 403. If you change `AUTH_MEMBER_EMAILS`, restart
+   `akahu-budget-mcp`. The server reads it only at startup.
 
 ## Build & deploy the auth page
 
@@ -183,6 +206,7 @@ curl https://<your-host>.<your-tailnet>.ts.net/.well-known/oauth-protected-resou
 
 # No token ⇒ 401 + WWW-Authenticate challenge:
 curl -i -X POST https://<your-host>.<your-tailnet>.ts.net/mcp
+curl -i https://<your-host>.<your-tailnet>.ts.net/api/spending-allowance
 
 # The consent page loads:
 curl -sI https://<your-host>.<your-tailnet>.ts.net/oauth/authorize   # → 200 text/html
@@ -242,6 +266,8 @@ Confirmed against a real ChatGPT dev-mode connector token:
   but can't invoke them.
 - **Org-managed Claude/ChatGPT plans usually block custom connectors** via admin
   policy — use a personal account.
+- **Android app**: see "Android Connected App" above. Build and install steps
+  are in `android/README.md`.
 
 ## Debugging
 
