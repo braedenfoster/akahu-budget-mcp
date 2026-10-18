@@ -32,8 +32,7 @@ interface AllowanceCache {
 }
 
 class PrefsAllowanceCache(context: Context) : AllowanceCache {
-    // Renaming the file would orphan cached bank figures that sign-out no longer clears.
-    private val prefs = context.getSharedPreferences("figure_cache", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("allowance_cache", Context.MODE_PRIVATE)
 
     override fun read(): CachedAllowance? {
         val json = prefs.getString(KEY_JSON, null) ?: return null
