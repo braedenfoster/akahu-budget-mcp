@@ -26,7 +26,7 @@ class AppAuthSignIn(
             serviceConfig,
             config.stytchClientId,
             ResponseTypeValues.CODE,
-            Uri.parse(AppConfig.REDIRECT_URI),
+            Uri.parse(config.redirectUri),
         )
             .setScopes(AppConfig.SCOPES)
             .build()

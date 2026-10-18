@@ -14,8 +14,12 @@ data class AppConfig(
             "PUBLIC_URL".takeIf { apiBaseUrl.isBlank() },
         )
 
+    // Stytch accepts only http(s) redirects. The auth-page relay forwards the code to the
+    // app's custom scheme (appAuthRedirectScheme in build.gradle.kts).
+    val redirectUri: String
+        get() = "$apiBaseUrl/oauth/android-callback"
+
     companion object {
-        const val REDIRECT_URI = "nz.foster.budget:/oauth/callback"
         val SCOPES = listOf("openid", "email", "profile", "offline_access")
 
         fun fromBuildConfig() = AppConfig(

@@ -16,4 +16,12 @@ class AppConfigTest {
     fun `lists nothing when every value is set`() {
         assertEquals(emptyList<String>(), AppConfig("connected-app-test", "https://x.customers.stytch.dev", "https://host.ts.net").missingKeys)
     }
+
+    @Test
+    fun `redirects to the relay page on the public host`() {
+        assertEquals(
+            "https://host.ts.net/oauth/android-callback",
+            AppConfig("connected-app-test", "https://x.customers.stytch.dev", "https://host.ts.net").redirectUri,
+        )
+    }
 }

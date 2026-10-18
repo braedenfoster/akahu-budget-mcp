@@ -98,19 +98,27 @@ The Android app uses the same Stytch project, Organization, Members, access-toke
 template and Authorization URL as the MCP connectors. It needs its own Connected
 App, because no DCR client allows the app's redirect URI. The app does not use DCR.
 
-1. Confirm that the access-token template from dashboard step 4 is saved (see the
-   snapshot warning there).
-2. **Connected Apps → Create**: first-party, **public** (no client secret), PKCE.
-   Create a new Connected App. Do not reuse an older one, because it can predate
-   the template.
-3. **Redirect URI**: `nz.foster.budget:/oauth/callback`.
-4. **Scopes**: `openid email profile offline_access`. Without `offline_access`,
-   Stytch issues no refresh token and the Member must sign in again each time the
-   access token expires.
-5. Copy the `client_id` into the git-ignored `deploy/.env` as
+Stytch accepts only `http(s)` redirect URLs. So Stytch redirects to a relay page
+in the auth page (`/oauth/android-callback`), and that page hands the code to the
+app's custom scheme `nz.foster.budget:/oauth/callback`.
+
+1. **Connected Apps → Create**, client type **First Party Public**. You cannot
+   change the client type later. A Confidential client needs a secret, which the
+   app cannot keep.
+2. **Access Token Template Content**: set it on this Connected App to the same
+   template as dashboard step 4. A new Connected App can start with `{}`. With
+   `{}`, tokens have no `email` claim and every `/api` call gets 401.
+3. **Login Redirect URLs**: add
+   `https://<your-host>.<your-tailnet>.ts.net/oauth/android-callback`. It must
+   start with your `PUBLIC_URL`, because the app builds it from that value.
+4. **Bypass user consent for `offline_access`**: on. There is no scope list to
+   set. The app requests `openid email profile offline_access` itself.
+5. Leave **Enable full access** off and **Custom JWT Audience** empty. The server
+   checks that `aud` is the project ID.
+6. Copy the `client_id` into the git-ignored `deploy/.env` as
    `STYTCH_ANDROID_CLIENT_ID`. The `client_id` is not a secret. The Android build
    also needs `AUTH_ISSUER` and `PUBLIC_URL` (see `android/README.md`).
-6. Confirm each Member's email is in `AUTH_MEMBER_EMAILS` on the host. A token
+7. Confirm each Member's email is in `AUTH_MEMBER_EMAILS` on the host. A token
    for any other email gets 403. If you change `AUTH_MEMBER_EMAILS`, restart
    `akahu-budget-mcp`. The server reads it only at startup.
 

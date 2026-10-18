@@ -20,6 +20,8 @@ before(async () => {
   await mkdir(path.join(root, 'assets'), { recursive: true });
   await writeFile(path.join(root, 'index.html'), '<!doctype html><title>ROOT_INDEX</title>');
   await writeFile(path.join(root, 'assets', 'app.js'), 'console.log("ASSET_JS")');
+  await mkdir(path.join(root, 'android-callback'));
+  await writeFile(path.join(root, 'android-callback', 'index.html'), '<!doctype html><title>RELAY</title>');
 
   server = createServer(root);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -70,6 +72,18 @@ test('an encoded traversal cannot read a file outside the root', async () => {
   const res = await fetch(`${base}/%2e%2e%2fsecret.txt`);
   assert.equal(res.status, 403);
   assert.doesNotMatch(await res.text(), /TOP_SECRET/);
+});
+
+test('the Android relay page is served from its directory, not the SPA fallback', async () => {
+  const mounted = createServer(root, { basePath: '/oauth' });
+  await new Promise((resolve) => mounted.listen(0, '127.0.0.1', resolve));
+  try {
+    const res = await fetch(`http://127.0.0.1:${mounted.address().port}/oauth/android-callback?code=c&state=s`);
+    assert.equal(res.status, 200);
+    assert.match(await res.text(), /RELAY/);
+  } finally {
+    await new Promise((resolve) => mounted.close(resolve));
+  }
 });
 
 test('non-GET methods are rejected', async () => {

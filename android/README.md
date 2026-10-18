@@ -5,7 +5,8 @@ The native Android app for the Household (ADR-0013). It signs a Member in throug
 - `applicationId`: `nz.foster.budget`
 - App name: "Budget"
 - `minSdk` 31, `compileSdk` and `targetSdk` 35
-- Redirect URI: `nz.foster.budget:/oauth/callback`
+- Redirect URI registered in Stytch: `<PUBLIC_URL>/oauth/android-callback` (the auth-page relay)
+- App callback the relay opens: `nz.foster.budget:/oauth/callback`
 - Scopes: `openid email profile offline_access`
 
 ## Toolchain
@@ -73,7 +74,8 @@ Install on a phone over USB with `adb install -r <apk>`.
 1. The app fetches the Stytch OpenID configuration from `AUTH_ISSUER`.
 2. AppAuth opens a Custom Tab on the auth page (`/oauth/authorize`) with a PKCE challenge.
 3. The Member signs in with an email one-time code and grants consent.
-4. Stytch redirects to `nz.foster.budget:/oauth/callback`. AppAuth exchanges the code for tokens.
-5. The app encrypts the session (refresh token and access token) with an AES key from Android Keystore. The key survives app restarts and reboots.
+4. Stytch redirects to the relay page `<PUBLIC_URL>/oauth/android-callback`. The page forwards the code to `nz.foster.budget:/oauth/callback`. If the browser does not open the app, the Member taps "Open Budget".
+5. AppAuth exchanges the code for tokens.
+6. The app encrypts the session (refresh token and access token) with an AES key from Android Keystore. The key survives app restarts and reboots.
 
 The app refreshes the access token when it is within 60 seconds of expiry. If the token endpoint rejects the refresh token, the app clears the session and the cached figure, and shows "Sign in". If the phone cannot reach the token endpoint, the app keeps the session.

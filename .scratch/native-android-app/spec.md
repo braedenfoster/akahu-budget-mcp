@@ -58,7 +58,7 @@ Build a native Android app for both Members.
 
 ### Auth
 
-- Create a **pre-registered first-party public Connected App** in Stytch: fixed `client_id`, PKCE, custom-scheme redirect `nz.foster.budget:/oauth/callback`.
+- Create a **pre-registered first-party public Connected App** in Stytch: fixed `client_id`, PKCE. Stytch redirects to the auth-page relay `<PUBLIC_URL>/oauth/android-callback`, which opens `nz.foster.budget:/oauth/callback` (ADR-0013 amendment).
 - Create the client after the access-token template exists. Stytch snapshots the template onto each client at creation time.
 - `aud` is the Stytch project_id, so `verify.ts` needs no change.
 - The app uses AppAuth-Android. Sign-in opens a Custom Tab to the existing auth page (Stytch email OTP).
