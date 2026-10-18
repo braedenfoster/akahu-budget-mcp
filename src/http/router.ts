@@ -9,6 +9,7 @@ import {
 import type { AuthConfig } from "../config.js";
 import { withActor, type Actor, type AppContext } from "../context.js";
 import { buildMcpServer } from "../mcp.js";
+import { buildApiRouter } from "./api.js";
 import { buildWidgetRouter } from "./widget.js";
 
 /**
@@ -101,17 +102,23 @@ export function buildTailnetApp(ctx: AppContext, actor: Actor | undefined): Expr
   return app;
 }
 
-/** The OAuth-guarded public listener (ADR-0010). It must never serve the widget routes. */
+/**
+ * The OAuth-guarded public listener (ADR-0010, ADR-0013). It must never serve
+ * the widget routes, and every `/api` route must sit behind `authenticate`.
+ */
 export function buildPublicApp(
   ctx: AppContext,
   opts: { authorize: Authorizer; auth: AuthConfig },
 ): Express {
-  return buildMcpApp(ctx, {
-    authenticate: makeAuthenticateMiddleware(opts.authorize),
+  const authenticate = makeAuthenticateMiddleware(opts.authorize);
+  const app = buildMcpApp(ctx, {
+    authenticate,
     resolveActor: (req) => req.actor,
     wellKnown: {
       path: PROTECTED_RESOURCE_PATH,
       handler: makeResourceMetadataHandler(opts.auth),
     },
   });
+  app.use("/api", authenticate, buildApiRouter(ctx));
+  return app;
 }

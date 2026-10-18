@@ -4,14 +4,14 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 Spec: `.scratch/native-android-app/spec.md` (Server: public REST routes)
 
-- [ ] `GET /api/spending-allowance` on the public listener returns `{ spending_allowance }`
-- [ ] The block equals `get_budget`'s block for the same Period and clock
-- [ ] The auth middleware runs before `/api` (today it runs before `POST /mcp` only)
-- [ ] No token gives 401; a token for an email not attached to a Member gives 403
-- [ ] The tailnet listener returns 404 for `/api/spending-allowance`
-- [ ] The route has no logic beyond calling `computeSpendingAllowance` and serializing it
-- [ ] One HTTP-level test file covers the criteria above
+- [x] `GET /api/spending-allowance` on the public listener returns `{ spending_allowance }`
+- [x] The block equals `get_budget`'s block for the same Period and clock
+- [x] The auth middleware runs before `/api` (today it runs before `POST /mcp` only)
+- [x] No token gives 401; a token for an email not attached to a Member gives 403
+- [x] The tailnet listener returns 404 for `/api/spending-allowance`
+- [x] The route has no logic beyond calling `computeSpendingAllowance` and serializing it
+- [x] One HTTP-level test file covers the criteria above
