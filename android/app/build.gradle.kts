@@ -115,6 +115,15 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    // The contract tests read the server-generated files in place, not a copy.
+    val contractsDir = rootProject.file("../contracts")
+    testOptions {
+        unitTests.all {
+            it.systemProperty("budget.contractsDir", contractsDir.absolutePath)
+            it.inputs.dir(contractsDir)
+        }
+    }
 }
 
 kotlin {

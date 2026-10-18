@@ -2,12 +2,32 @@ package nz.foster.budget.cache
 
 import android.content.Context
 
+/** The raw body of the last good `GET /api/spending-allowance` response. */
 data class CachedFigure(val json: String, val fetchedAtMillis: Long)
 
-/** The last good API response. Auth clears it whenever the Member is signed out. */
+enum class FetchFailure {
+    /** The phone could not reach the server or the token endpoint. */
+    Offline,
+
+    /** The server answered with an error status or a body the app cannot read. */
+    ServerError,
+}
+
+sealed interface LastFetch {
+    val atMillis: Long
+
+    data class Succeeded(override val atMillis: Long) : LastFetch
+    data class Failed(override val atMillis: Long, val failure: FetchFailure) : LastFetch
+}
+
+/** The last good API response and the result of the latest fetch. Auth clears both whenever the Member is signed out. */
 interface FigureCache {
     fun read(): CachedFigure?
-    fun write(figure: CachedFigure)
+    fun lastFetch(): LastFetch?
+    fun recordSuccess(figure: CachedFigure)
+
+    /** Keeps the cached figure. */
+    fun recordFailure(failure: FetchFailure, atMillis: Long)
     fun clear()
 }
 
@@ -19,10 +39,25 @@ class PrefsFigureCache(context: Context) : FigureCache {
         return CachedFigure(json, prefs.getLong(KEY_FETCHED_AT, 0L))
     }
 
-    override fun write(figure: CachedFigure) {
+    override fun lastFetch(): LastFetch? {
+        val failure = prefs.getString(KEY_FAILURE, null)?.let { name -> FetchFailure.entries.find { it.name == name } }
+        if (failure != null) return LastFetch.Failed(prefs.getLong(KEY_FAILED_AT, 0L), failure)
+        return read()?.let { LastFetch.Succeeded(it.fetchedAtMillis) }
+    }
+
+    override fun recordSuccess(figure: CachedFigure) {
         prefs.edit()
             .putString(KEY_JSON, figure.json)
             .putLong(KEY_FETCHED_AT, figure.fetchedAtMillis)
+            .remove(KEY_FAILURE)
+            .remove(KEY_FAILED_AT)
+            .commit()
+    }
+
+    override fun recordFailure(failure: FetchFailure, atMillis: Long) {
+        prefs.edit()
+            .putString(KEY_FAILURE, failure.name)
+            .putLong(KEY_FAILED_AT, atMillis)
             .commit()
     }
 
@@ -33,5 +68,7 @@ class PrefsFigureCache(context: Context) : FigureCache {
     private companion object {
         const val KEY_JSON = "json"
         const val KEY_FETCHED_AT = "fetched_at"
+        const val KEY_FAILURE = "failure"
+        const val KEY_FAILED_AT = "failed_at"
     }
 }

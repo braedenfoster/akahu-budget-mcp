@@ -3,6 +3,8 @@ package nz.foster.budget
 import android.app.Application
 import android.content.Context
 import net.openid.appauth.AuthorizationService
+import nz.foster.budget.allowance.AllowanceRepository
+import nz.foster.budget.api.HttpSpendingAllowanceApi
 import nz.foster.budget.auth.AppAuthTokenRefresher
 import nz.foster.budget.auth.AuthManager
 import nz.foster.budget.auth.KeystoreTokenStore
@@ -30,6 +32,7 @@ class AppGraph(context: Context) {
         refresher = AppAuthTokenRefresher(authService, config.stytchClientId),
         figureCache = figureCache,
     )
+    val allowance = AllowanceRepository(auth, HttpSpendingAllowanceApi(config.apiBaseUrl), figureCache)
 }
 
 val Context.appGraph: AppGraph get() = (applicationContext as BudgetApp).graph
