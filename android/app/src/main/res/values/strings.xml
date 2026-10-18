@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Budget</string>
+    <string name="sign_in">Sign in</string>
+    <string name="sign_out">Sign out</string>
+    <string name="signed_in">Signed in</string>
+    <string name="signed_out_message">Sign in with your Household email to see the Spending allowance.</string>
+    <string name="sign_in_failed">Sign-in failed: %1$s</string>
+    <string name="config_missing">This build is missing %1$s. Rebuild with the values in android/README.md.</string>
+</resources>
