@@ -1,0 +1,32 @@
+<resources>
+    <string name="app_name">Budget</string>
+    <string name="sign_in">Sign in</string>
+    <string name="sign_out">Sign out</string>
+    <string name="refresh">Refresh</string>
+    <string name="per_week">%1$s / week</string>
+    <plurals name="days_left">
+        <item quantity="one">%d day left</item>
+        <item quantity="other">%d days left</item>
+    </plurals>
+    <string name="no_budget_for">No budget for %1$s</string>
+    <string name="flexible_remaining">Flexible remaining</string>
+    <string name="committed_overspend">Committed overspend</string>
+    <string name="uncategorized_spend">Uncategorized spend</string>
+    <string name="uncategorized_count">%1$d to review</string>
+    <string name="data_as_of">Data as of %1$s</string>
+    <string name="data_as_of_unknown">Data as of: no sync yet</string>
+    <string name="stale_warning">The bank data is old. The nightly sync may have failed.</string>
+    <string name="last_checked">Last checked %1$s</string>
+    <string name="never_checked">Not checked yet</string>
+    <string name="failure_offline">Offline. The server could not be reached.</string>
+    <string name="failure_server">The server returned an error.</string>
+    <string name="no_allowance_yet">No Spending allowance yet. Tap Refresh.</string>
+    <string name="signed_out_message">Sign in with your Household email to see the Spending allowance.</string>
+    <string name="sign_in_failed">Sign-in failed: %1$s</string>
+    <string name="widget_label">Spending allowance</string>
+    <string name="widget_description">The Spending allowance, per week, and days left.</string>
+    <string name="widget_no_allowance_yet">Tap to load</string>
+    <string name="widget_as_of">as of %1$s</string>
+    <string name="widget_offline">offline</string>
+    <string name="config_missing">This build is missing %1$s. Rebuild with the values in android/README.md.</string>
+</resources>
