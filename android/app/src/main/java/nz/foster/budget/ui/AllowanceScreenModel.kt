@@ -63,13 +63,13 @@ private fun figureModel(a: SpendingAllowance, zone: ZoneId) = FigureModel(
 
 private fun formatTimestamp(instant: Instant, zone: ZoneId) = timestampFormat.format(instant.atZone(zone))
 
-private fun formatMonth(period: String) = try {
+internal fun formatMonth(period: String) = try {
     monthFormat.format(YearMonth.parse(period))
 } catch (_: DateTimeParseException) {
     period
 }
 
-private fun parseInstant(iso: String) = try {
+internal fun parseInstant(iso: String) = try {
     Instant.parse(iso)
 } catch (_: DateTimeParseException) {
     null
