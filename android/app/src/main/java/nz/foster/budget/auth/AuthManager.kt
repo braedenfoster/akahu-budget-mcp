@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import nz.foster.budget.cache.FigureCache
+import nz.foster.budget.cache.AllowanceCache
 
 enum class AuthState { SignedOut, SignedIn }
 
@@ -16,14 +16,14 @@ sealed interface AccessTokenResult {
 
     data object SignedOut : AccessTokenResult
 
-    /** The refresh could not reach the server. Keep the session and show the last good figure. */
+    /** The refresh could not reach the server. Keep the session and show the last good Spending allowance. */
     data object Offline : AccessTokenResult
 }
 
 class AuthManager(
     private val store: TokenStore,
     private val refresher: TokenRefresher,
-    private val figureCache: FigureCache,
+    private val allowanceCache: AllowanceCache,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     private val mutex = Mutex()
@@ -65,7 +65,7 @@ class AuthManager(
 
     private fun clearLocked() {
         store.clear()
-        figureCache.clear()
+        allowanceCache.clear()
         _state.value = AuthState.SignedOut
     }
 }

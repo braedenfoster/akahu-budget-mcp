@@ -2,6 +2,7 @@ package nz.foster.budget.auth
 
 import android.net.Uri
 import kotlin.coroutines.resume
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -20,24 +21,25 @@ class AppAuthTokenRefresher(
             .setGrantType(GrantTypeValues.REFRESH_TOKEN)
             .setRefreshToken(session.refreshToken)
             .build()
-        // AppAuth starts an AsyncTask, which must be created on the main thread.
-        return withContext(Dispatchers.Main) {
-            suspendCancellableCoroutine { cont ->
-                service.performTokenRequest(request) { response, error ->
-                    val accessToken = response?.accessToken
-                    val result = when {
-                        accessToken != null -> RefreshResult.Refreshed(
-                            IssuedTokens(accessToken, response.accessTokenExpirationTime, response.refreshToken),
-                        )
-                        error != null -> classifyRefreshFailure(error.type, error.error)
-                        else -> RefreshResult.Rejected
-                    }
-                    cont.resume(result)
+        return awaitAppAuth { cont ->
+            service.performTokenRequest(request) { response, error ->
+                val accessToken = response?.accessToken
+                val result = when {
+                    accessToken != null -> RefreshResult.Refreshed(
+                        IssuedTokens(accessToken, response.accessTokenExpirationTime, response.refreshToken),
+                    )
+                    error != null -> classifyRefreshFailure(error.type, error.error)
+                    else -> RefreshResult.Rejected
                 }
+                cont.resume(result)
             }
         }
     }
 }
+
+/** AppAuth starts an AsyncTask, which must be created on the main thread. */
+internal suspend fun <T> awaitAppAuth(start: (CancellableContinuation<T>) -> Unit): T =
+    withContext(Dispatchers.Main) { suspendCancellableCoroutine(start) }
 
 private val RETRYABLE_OAUTH_ERRORS = setOf("server_error", "temporarily_unavailable")
 

@@ -9,10 +9,8 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import java.time.Instant
-import java.time.ZoneId
 import java.util.concurrent.TimeUnit
-
-val HOUSEHOLD_ZONE: ZoneId = ZoneId.of("Pacific/Auckland")
+import nz.foster.budget.allowance.HOUSEHOLD_ZONE
 
 object RefreshScheduler {
     private const val PERIODIC = "allowance-refresh-every-3h"

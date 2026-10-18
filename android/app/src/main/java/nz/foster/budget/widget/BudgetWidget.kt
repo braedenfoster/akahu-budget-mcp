@@ -30,8 +30,8 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import nz.foster.budget.R
+import nz.foster.budget.allowance.AmountTone
 import nz.foster.budget.appGraph
-import nz.foster.budget.refresh.HOUSEHOLD_ZONE
 import nz.foster.budget.refresh.RefreshScheduler
 import nz.foster.budget.ui.MainActivity
 
@@ -41,7 +41,7 @@ class BudgetWidget : GlanceAppWidget() {
         allowance.reload()
         provideContent {
             val snapshot by allowance.snapshot.collectAsState()
-            GlanceTheme { WidgetContent(widgetState(snapshot, HOUSEHOLD_ZONE)) }
+            GlanceTheme { WidgetContent(widgetState(snapshot)) }
         }
     }
 }
@@ -69,31 +69,31 @@ private fun WidgetContent(state: WidgetState) {
     ) {
         when (state) {
             WidgetState.SignedOut -> Headline(LocalContext.current.getString(R.string.sign_in))
-            is WidgetState.NoFigure -> {
-                Headline(LocalContext.current.getString(R.string.widget_no_figure))
-                Details(offline = state.offline)
+            is WidgetState.NoAllowanceYet -> {
+                Headline(LocalContext.current.getString(R.string.widget_no_allowance_yet))
+                Details(showsOfflineMark = state.showsOfflineMark)
             }
             is WidgetState.NoBudget -> {
                 Headline(LocalContext.current.getString(R.string.no_budget_for, state.month))
-                Details(offline = state.offline)
+                Details(showsOfflineMark = state.showsOfflineMark)
             }
-            is WidgetState.Figure -> FigureContent(state)
+            is WidgetState.Allowance -> AllowanceContent(state)
         }
     }
 }
 
 @Composable
-private fun FigureContent(state: WidgetState.Figure) {
+private fun AllowanceContent(state: WidgetState.Allowance) {
     val context = LocalContext.current
-    val amountColor = when {
-        state.stale -> GlanceTheme.colors.outline
-        state.over -> GlanceTheme.colors.error
-        else -> GlanceTheme.colors.onSurface
+    val amountColor = when (state.tone) {
+        AmountTone.Over -> GlanceTheme.colors.error
+        AmountTone.Stale -> GlanceTheme.colors.outline
+        AmountTone.Normal -> GlanceTheme.colors.onSurface
     }
     Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(state.amount, style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = amountColor))
         Spacer(GlanceModifier.defaultWeight())
-        state.uncategorizedBadge?.let { Badge(context.getString(R.string.uncategorized_count, it)) }
+        state.uncategorizedBadgeCount?.let { Badge(context.getString(R.string.uncategorized_count, it)) }
     }
     Details(
         parts = listOfNotNull(
@@ -101,7 +101,7 @@ private fun FigureContent(state: WidgetState.Figure) {
             context.resources.getQuantityString(R.plurals.days_left, state.daysLeft, state.daysLeft),
             state.asOf?.let { context.getString(R.string.widget_as_of, it) },
         ),
-        offline = state.offline,
+        showsOfflineMark = state.showsOfflineMark,
     )
 }
 
@@ -111,9 +111,9 @@ private fun Headline(text: String) {
 }
 
 @Composable
-private fun Details(parts: List<String> = emptyList(), offline: Boolean) {
+private fun Details(parts: List<String> = emptyList(), showsOfflineMark: Boolean) {
     val context = LocalContext.current
-    val all = parts + listOfNotNull(context.getString(R.string.widget_offline).takeIf { offline })
+    val all = parts + listOfNotNull(context.getString(R.string.widget_offline).takeIf { showsOfflineMark })
     if (all.isEmpty()) return
     Text(all.joinToString(" · "), maxLines = 1, style = TextStyle(fontSize = 13.sp, color = GlanceTheme.colors.onSurfaceVariant))
 }

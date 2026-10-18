@@ -6,14 +6,14 @@ import nz.foster.budget.api.ApiResponse
 import nz.foster.budget.api.SpendingAllowanceApi
 import nz.foster.budget.auth.AuthManager
 import nz.foster.budget.auth.AuthState
-import nz.foster.budget.auth.InMemoryFigureCache
 import nz.foster.budget.auth.InMemoryTokenStore
 import nz.foster.budget.auth.IssuedTokens
 import nz.foster.budget.auth.RefreshResult
 import nz.foster.budget.auth.ScriptedRefresher
 import nz.foster.budget.auth.session
-import nz.foster.budget.cache.CachedFigure
+import nz.foster.budget.cache.CachedAllowance
 import nz.foster.budget.cache.FetchFailure
+import nz.foster.budget.cache.InMemoryAllowanceCache
 import nz.foster.budget.cache.LastFetch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -44,7 +44,7 @@ class ScriptedApi(vararg responses: Any) : SpendingAllowanceApi {
 class AllowanceRepositoryTest {
     private val now = 5_000_000L
     private val store = InMemoryTokenStore(session(expiresAt = now + 3_600_000))
-    private val cache = InMemoryFigureCache()
+    private val cache = InMemoryAllowanceCache()
 
     private fun repository(api: SpendingAllowanceApi, refresher: ScriptedRefresher = ScriptedRefresher()) =
         AllowanceRepository(AuthManager(store, refresher, cache, clock = { now }), api, cache, clock = { now })
@@ -58,7 +58,7 @@ class AllowanceRepositoryTest {
 
         assertEquals(36500L, (outcome as FetchOutcome.Fetched).allowance.amountCents)
         assertEquals(listOf("access-1"), api.tokens)
-        assertEquals(CachedFigure(OK_BODY, now), cache.figure)
+        assertEquals(CachedAllowance(OK_BODY, now), cache.cached)
         assertEquals(LastFetch.Succeeded(now), cache.lastFetch())
         assertEquals(36500L, repo.snapshot.value.allowance?.amountCents)
         assertEquals(now, repo.snapshot.value.lastSuccessAtMillis)
@@ -66,13 +66,13 @@ class AllowanceRepositoryTest {
 
     @Test
     fun `a network failure keeps the cache and records offline`() = runTest {
-        cache.recordSuccess(CachedFigure(OLD_BODY, 1L))
+        cache.recordSuccess(CachedAllowance(OLD_BODY, 1L))
         val repo = repository(ScriptedApi(IOException("no route")))
 
         val outcome = repo.refresh()
 
         assertEquals(FetchOutcome.Failed(FetchFailure.Offline), outcome)
-        assertEquals(CachedFigure(OLD_BODY, 1L), cache.figure)
+        assertEquals(CachedAllowance(OLD_BODY, 1L), cache.cached)
         assertEquals(LastFetch.Failed(now, FetchFailure.Offline), cache.lastFetch())
         assertEquals(100L, repo.snapshot.value.allowance?.amountCents)
         assertEquals(1L, repo.snapshot.value.lastSuccessAtMillis)
@@ -80,21 +80,21 @@ class AllowanceRepositoryTest {
 
     @Test
     fun `a server error keeps the cache`() = runTest {
-        cache.recordSuccess(CachedFigure(OLD_BODY, 1L))
+        cache.recordSuccess(CachedAllowance(OLD_BODY, 1L))
         val repo = repository(ScriptedApi(ApiResponse(502, "Bad Gateway")))
 
         assertEquals(FetchOutcome.Failed(FetchFailure.ServerError), repo.refresh())
-        assertEquals(CachedFigure(OLD_BODY, 1L), cache.figure)
+        assertEquals(CachedAllowance(OLD_BODY, 1L), cache.cached)
         assertEquals(LastFetch.Failed(now, FetchFailure.ServerError), cache.lastFetch())
     }
 
     @Test
     fun `an unreadable body keeps the cache`() = runTest {
-        cache.recordSuccess(CachedFigure(OLD_BODY, 1L))
+        cache.recordSuccess(CachedAllowance(OLD_BODY, 1L))
         val repo = repository(ScriptedApi(ApiResponse(200, """{"spending_allowance":{}}""")))
 
         assertEquals(FetchOutcome.Failed(FetchFailure.ServerError), repo.refresh())
-        assertEquals(CachedFigure(OLD_BODY, 1L), cache.figure)
+        assertEquals(CachedAllowance(OLD_BODY, 1L), cache.cached)
     }
 
     @Test
@@ -127,33 +127,33 @@ class AllowanceRepositoryTest {
 
         assertTrue(repo.refresh() is FetchOutcome.Fetched)
         assertEquals(listOf("access-1", "access-2"), api.tokens)
-        assertEquals(CachedFigure(OK_BODY, now), cache.figure)
+        assertEquals(CachedAllowance(OK_BODY, now), cache.cached)
     }
 
     @Test
     fun `a 401 after a refresh signs out and clears the cache`() = runTest {
-        cache.recordSuccess(CachedFigure(OLD_BODY, 1L))
+        cache.recordSuccess(CachedAllowance(OLD_BODY, 1L))
         val api = ScriptedApi(ApiResponse(401, ""), ApiResponse(401, ""))
         val refresher = ScriptedRefresher(RefreshResult.Refreshed(IssuedTokens("access-2", now + 3_600_000, null)))
         val repo = repository(api, refresher)
 
         assertEquals(FetchOutcome.SignedOut, repo.refresh())
         assertNull(store.session)
-        assertNull(cache.figure)
+        assertNull(cache.cached)
         assertNull(cache.lastFetch())
         assertEquals(AllowanceSnapshot(AuthState.SignedOut, null, null, null), repo.snapshot.value)
     }
 
     @Test
     fun `a 403 signs out and clears the cache`() = runTest {
-        cache.recordSuccess(CachedFigure(OLD_BODY, 1L))
+        cache.recordSuccess(CachedAllowance(OLD_BODY, 1L))
         val api = ScriptedApi(ApiResponse(403, ""))
         val repo = repository(api)
 
         assertEquals(FetchOutcome.SignedOut, repo.refresh())
         assertEquals(1, api.tokens.size)
         assertNull(store.session)
-        assertNull(cache.figure)
+        assertNull(cache.cached)
     }
 
     @Test
@@ -168,7 +168,7 @@ class AllowanceRepositoryTest {
 
     @Test
     fun `the snapshot starts from the cache`() {
-        cache.recordSuccess(CachedFigure(OK_BODY, 42L))
+        cache.recordSuccess(CachedAllowance(OK_BODY, 42L))
 
         val snapshot = repository(ScriptedApi()).snapshot.value
 
@@ -180,7 +180,7 @@ class AllowanceRepositoryTest {
 
     @Test
     fun `an unreadable cache reads as empty`() {
-        cache.recordSuccess(CachedFigure("""{"old":true}""", 42L))
+        cache.recordSuccess(CachedAllowance("""{"old":true}""", 42L))
 
         assertNull(repository(ScriptedApi()).snapshot.value.allowance)
     }

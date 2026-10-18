@@ -21,6 +21,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import nz.foster.budget.R
+import nz.foster.budget.allowance.AmountTone
 import nz.foster.budget.cache.FetchFailure
 
 @Composable
@@ -44,18 +45,18 @@ fun SpendingAllowanceScreen(
             Text(stringResource(text), color = MaterialTheme.colorScheme.error)
         }
 
-        val figure = model.figure
-        if (figure == null) {
-            Text(stringResource(R.string.no_figure_yet))
+        val allowance = model.allowance
+        if (allowance == null) {
+            Text(stringResource(R.string.no_allowance_yet))
         } else {
-            Headline(figure)
-            Breakdown(figure)
+            Headline(allowance)
+            Breakdown(allowance)
             Text(
-                figure.dataAsOf?.let { stringResource(R.string.data_as_of, it) }
+                allowance.dataAsOf?.let { stringResource(R.string.data_as_of, it) }
                     ?: stringResource(R.string.data_as_of_unknown),
                 style = MaterialTheme.typography.bodySmall,
             )
-            if (figure.stale) {
+            if (allowance.stale) {
                 Text(stringResource(R.string.stale_warning), color = MaterialTheme.colorScheme.error)
             }
         }
@@ -72,40 +73,39 @@ fun SpendingAllowanceScreen(
 }
 
 @Composable
-private fun Headline(figure: FigureModel) {
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val amountColor = when {
-        figure.stale -> muted
-        figure.over -> MaterialTheme.colorScheme.error
-        else -> Color.Unspecified
+private fun Headline(allowance: AllowanceModel) {
+    val amountColor = when (allowance.tone) {
+        AmountTone.Over -> MaterialTheme.colorScheme.error
+        AmountTone.Stale -> MaterialTheme.colorScheme.onSurfaceVariant
+        AmountTone.Normal -> Color.Unspecified
     }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (figure.amount != null) {
-            Text(figure.amount, style = MaterialTheme.typography.displayMedium, color = amountColor)
+        if (allowance.amount != null) {
+            Text(allowance.amount, style = MaterialTheme.typography.displayMedium, color = amountColor)
         } else {
             Text(
-                stringResource(R.string.no_budget_for, figure.noBudgetMonth.orEmpty()),
+                stringResource(R.string.no_budget_for, allowance.noBudgetMonth.orEmpty()),
                 style = MaterialTheme.typography.headlineSmall,
             )
         }
-        val daysLeft = pluralStringResource(R.plurals.days_left, figure.daysLeft, figure.daysLeft)
-        val perWeek = figure.perWeek?.let { stringResource(R.string.per_week, it) }
+        val daysLeft = pluralStringResource(R.plurals.days_left, allowance.daysLeft, allowance.daysLeft)
+        val perWeek = allowance.perWeek?.let { stringResource(R.string.per_week, it) }
         Text(listOfNotNull(perWeek, daysLeft).joinToString(" · "), style = MaterialTheme.typography.titleMedium)
     }
 }
 
 @Composable
-private fun Breakdown(figure: FigureModel) {
+private fun Breakdown(allowance: AllowanceModel) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            figure.flexibleRemaining?.let { BreakdownRow(stringResource(R.string.flexible_remaining), it) }
-            figure.committedOverspend?.let { BreakdownRow(stringResource(R.string.committed_overspend), it) }
-            if (figure.flexibleRemaining != null || figure.committedOverspend != null) HorizontalDivider()
+            allowance.flexibleRemaining?.let { BreakdownRow(stringResource(R.string.flexible_remaining), it) }
+            allowance.committedOverspend?.let { BreakdownRow(stringResource(R.string.committed_overspend), it) }
+            if (allowance.flexibleRemaining != null || allowance.committedOverspend != null) HorizontalDivider()
             BreakdownRow(
                 stringResource(R.string.uncategorized_spend),
-                figure.uncategorizedSpent,
-                stringResource(R.string.uncategorized_count, figure.uncategorizedCount)
-                    .takeIf { figure.uncategorizedCount > 0 },
+                allowance.uncategorizedSpent,
+                stringResource(R.string.uncategorized_count, allowance.uncategorizedCount)
+                    .takeIf { allowance.uncategorizedCount > 0 },
             )
         }
     }

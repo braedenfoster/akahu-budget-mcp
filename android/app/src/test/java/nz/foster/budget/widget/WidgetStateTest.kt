@@ -1,11 +1,10 @@
 package nz.foster.budget.widget
 
-import java.io.File
 import java.time.Instant
-import java.time.ZoneId
 import nz.foster.budget.allowance.AllowanceSnapshot
+import nz.foster.budget.allowance.AmountTone
 import nz.foster.budget.api.SpendingAllowance
-import nz.foster.budget.api.parseSpendingAllowance
+import nz.foster.budget.api.contractAllowance
 import nz.foster.budget.auth.AuthState
 import nz.foster.budget.cache.FetchFailure
 import nz.foster.budget.cache.LastFetch
@@ -16,130 +15,136 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WidgetStateTest {
-    private val zone = ZoneId.of("Pacific/Auckland")
     private val fetchedAt = Instant.parse("2026-10-16T19:30:00Z").toEpochMilli()
     private val succeeded = LastFetch.Succeeded(fetchedAt)
-
-    private fun allowance(state: String) = parseSpendingAllowance(
-        File(System.getProperty("budget.contractsDir"), "spending-allowance.$state.json").readText(),
-    )
+    private val failedOffline = LastFetch.Failed(fetchedAt + 1, FetchFailure.Offline)
 
     private fun state(
         allowance: SpendingAllowance?,
         lastFetch: LastFetch? = succeeded,
         auth: AuthState = AuthState.SignedIn,
-    ) = widgetState(AllowanceSnapshot(auth, allowance, fetchedAt.takeIf { allowance != null }, lastFetch), zone)
+    ) = widgetState(AllowanceSnapshot(auth, allowance, fetchedAt.takeIf { allowance != null }, lastFetch))
 
-    private fun figure(allowance: SpendingAllowance?, lastFetch: LastFetch? = succeeded) =
-        state(allowance, lastFetch) as WidgetState.Figure
+    private fun shown(allowance: SpendingAllowance, lastFetch: LastFetch? = succeeded) =
+        state(allowance, lastFetch) as WidgetState.Allowance
 
     @Test
     fun `ok shows the amount, per week, and days left`() {
         assertEquals(
-            WidgetState.Figure(
+            WidgetState.Allowance(
                 amount = "$365.00",
-                over = false,
+                tone = AmountTone.Normal,
                 perWeek = "$150.29",
                 daysLeft = 17,
-                stale = false,
                 asOf = null,
-                offline = false,
-                uncategorizedBadge = 1,
+                showsOfflineMark = false,
+                uncategorizedBadgeCount = 1,
             ),
-            state(allowance("ok")),
+            state(contractAllowance("ok")),
         )
     }
 
     @Test
-    fun `over shows the negative amount as over with no per-week figure`() {
-        val over = figure(allowance("over"))
+    fun `over shows the negative amount in the warning tone with no per-week figure`() {
+        val over = shown(contractAllowance("over"))
 
         assertEquals("-$115.00", over.amount)
-        assertTrue(over.over)
+        assertEquals(AmountTone.Over, over.tone)
         assertNull(over.perWeek)
     }
 
     @Test
     fun `over hides a per-week figure even if the server sends one`() {
-        assertNull(figure(allowance("over").copy(perWeekCents = 100)).perWeek)
+        assertNull(shown(contractAllowance("over").copy(perWeekCents = 100)).perWeek)
     }
 
     @Test
     fun `no budget names the month`() {
-        assertEquals(WidgetState.NoBudget(month = "October 2026", offline = false), state(allowance("no_budget")))
+        assertEquals(WidgetState.NoBudget(month = "October 2026", showsOfflineMark = false), state(contractAllowance("no_budget")))
     }
 
     @Test
     fun `stale greys the number and shows the Data-as-of date`() {
-        val stale = figure(allowance("stale"))
+        val stale = shown(contractAllowance("stale"))
 
-        assertTrue(stale.stale)
+        assertEquals(AmountTone.Stale, stale.tone)
         assertEquals("13 Oct", stale.asOf)
         assertEquals("$365.00", stale.amount)
-        assertFalse(stale.offline)
+        assertFalse(stale.showsOfflineMark)
     }
 
     @Test
-    fun `a fresh figure has no as-of date`() {
-        assertNull(figure(allowance("ok")).asOf)
+    fun `stale and over keeps the warning tone and shows the Data-as-of date`() {
+        val staleOver = contractAllowance("over").copy(stale = true, dataAsOf = contractAllowance("stale").dataAsOf)
+
+        val shown = shown(staleOver)
+
+        assertEquals(AmountTone.Over, shown.tone)
+        assertEquals("13 Oct", shown.asOf)
+    }
+
+    @Test
+    fun `a fresh Spending allowance has no as-of date`() {
+        assertNull(shown(contractAllowance("ok")).asOf)
     }
 
     @Test
     fun `signed out shows Sign in whatever is cached`() {
-        assertEquals(WidgetState.SignedOut, state(allowance("ok"), auth = AuthState.SignedOut))
+        assertEquals(WidgetState.SignedOut, state(contractAllowance("ok"), auth = AuthState.SignedOut))
         assertEquals(WidgetState.SignedOut, state(null, lastFetch = null, auth = AuthState.SignedOut))
     }
 
     @Test
     fun `offline keeps the last good value with an offline mark`() {
-        val offline = figure(allowance("ok"), LastFetch.Failed(fetchedAt + 1, FetchFailure.Offline))
+        val offline = shown(contractAllowance("ok"), failedOffline)
 
-        assertTrue(offline.offline)
+        assertTrue(offline.showsOfflineMark)
         assertEquals("$365.00", offline.amount)
         assertEquals("$150.29", offline.perWeek)
     }
 
     @Test
-    fun `a server error is shown as offline`() {
-        assertTrue(figure(allowance("ok"), LastFetch.Failed(fetchedAt + 1, FetchFailure.ServerError)).offline)
+    fun `a server error shows the offline mark`() {
+        assertTrue(shown(contractAllowance("ok"), LastFetch.Failed(fetchedAt + 1, FetchFailure.ServerError)).showsOfflineMark)
     }
 
     @Test
-    fun `a stale figure that then goes offline is both greyed and marked offline`() {
-        val both = figure(allowance("stale"), LastFetch.Failed(fetchedAt + 1, FetchFailure.Offline))
+    fun `a stale Spending allowance that then goes offline is both greyed and marked offline`() {
+        val both = shown(contractAllowance("stale"), failedOffline)
 
-        assertTrue(both.stale)
+        assertEquals(AmountTone.Stale, both.tone)
         assertEquals("13 Oct", both.asOf)
-        assertTrue(both.offline)
+        assertTrue(both.showsOfflineMark)
     }
 
     @Test
     fun `no budget can be offline`() {
-        val noBudget = state(allowance("no_budget"), LastFetch.Failed(fetchedAt + 1, FetchFailure.Offline))
-
-        assertEquals(WidgetState.NoBudget(month = "October 2026", offline = true), noBudget)
+        assertEquals(
+            WidgetState.NoBudget(month = "October 2026", showsOfflineMark = true),
+            state(contractAllowance("no_budget"), failedOffline),
+        )
     }
 
     @Test
     fun `signed in with nothing cached waits for the first fetch`() {
-        assertEquals(WidgetState.NoFigure(offline = false), state(null, lastFetch = null))
+        assertEquals(WidgetState.NoAllowanceYet(showsOfflineMark = false), state(null, lastFetch = null))
         assertEquals(
-            WidgetState.NoFigure(offline = true),
+            WidgetState.NoAllowanceYet(showsOfflineMark = true),
             state(null, lastFetch = LastFetch.Failed(fetchedAt, FetchFailure.Offline)),
         )
     }
 
     @Test
     fun `the Uncategorized badge shows in every state with a number`() {
-        assertEquals(1, figure(allowance("ok")).uncategorizedBadge)
-        assertEquals(1, figure(allowance("over")).uncategorizedBadge)
-        assertEquals(1, figure(allowance("stale")).uncategorizedBadge)
-        assertEquals(1, figure(allowance("ok"), LastFetch.Failed(fetchedAt + 1, FetchFailure.Offline)).uncategorizedBadge)
+        assertEquals(1, shown(contractAllowance("ok")).uncategorizedBadgeCount)
+        assertEquals(1, shown(contractAllowance("over")).uncategorizedBadgeCount)
+        assertEquals(1, shown(contractAllowance("stale")).uncategorizedBadgeCount)
+        assertEquals(1, shown(contractAllowance("ok"), failedOffline).uncategorizedBadgeCount)
     }
 
     @Test
     fun `the Uncategorized badge is hidden when the count is zero`() {
-        assertNull(figure(allowance("ok").copy(uncategorizedCount = 0)).uncategorizedBadge)
-        assertNull(figure(allowance("over").copy(uncategorizedCount = 0)).uncategorizedBadge)
+        assertNull(shown(contractAllowance("ok").copy(uncategorizedCount = 0)).uncategorizedBadgeCount)
+        assertNull(shown(contractAllowance("over").copy(uncategorizedCount = 0)).uncategorizedBadgeCount)
     }
 }

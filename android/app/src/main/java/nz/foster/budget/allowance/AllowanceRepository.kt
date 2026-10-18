@@ -14,9 +14,9 @@ import nz.foster.budget.api.parseSpendingAllowance
 import nz.foster.budget.auth.AccessTokenResult
 import nz.foster.budget.auth.AuthManager
 import nz.foster.budget.auth.AuthState
-import nz.foster.budget.cache.CachedFigure
+import nz.foster.budget.cache.CachedAllowance
 import nz.foster.budget.cache.FetchFailure
-import nz.foster.budget.cache.FigureCache
+import nz.foster.budget.cache.AllowanceCache
 import nz.foster.budget.cache.LastFetch
 
 /** Everything the screen and the widget read. */
@@ -37,7 +37,7 @@ sealed interface FetchOutcome {
 class AllowanceRepository(
     private val auth: AuthManager,
     private val api: SpendingAllowanceApi,
-    private val cache: FigureCache,
+    private val cache: AllowanceCache,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     private val fetchMutex = Mutex()
@@ -57,16 +57,10 @@ class AllowanceRepository(
     }
 
     private suspend fun fetchOnce(): FetchOutcome {
-        var response = when (val first = attempt()) {
-            is Attempt.Stopped -> return first.outcome
-            is Attempt.Answered -> first.response
-        }
+        var response = callApi { return it }
         if (response.code == 401) {
             auth.invalidateAccessToken()
-            response = when (val retry = attempt()) {
-                is Attempt.Stopped -> return retry.outcome
-                is Attempt.Answered -> retry.response
-            }
+            response = callApi { return it }
             if (response.code == 401) return signOut()
         }
         if (response.code == 403) return signOut()
@@ -77,25 +71,21 @@ class AllowanceRepository(
         } catch (_: SerializationException) {
             return FetchOutcome.Failed(FetchFailure.ServerError)
         }
-        cache.recordSuccess(CachedFigure(response.body, clock()))
+        cache.recordSuccess(CachedAllowance(response.body, clock()))
         return FetchOutcome.Fetched(allowance)
     }
 
-    private sealed interface Attempt {
-        data class Answered(val response: ApiResponse) : Attempt
-        data class Stopped(val outcome: FetchOutcome) : Attempt
-    }
-
-    private suspend fun attempt(): Attempt {
+    /** Calls [stop] when there is no token to send or the server cannot be reached. */
+    private suspend inline fun callApi(stop: (FetchOutcome) -> Nothing): ApiResponse {
         val token = when (val result = auth.accessToken()) {
             is AccessTokenResult.Token -> result.value
-            AccessTokenResult.SignedOut -> return Attempt.Stopped(FetchOutcome.SignedOut)
-            AccessTokenResult.Offline -> return Attempt.Stopped(FetchOutcome.Failed(FetchFailure.Offline))
+            AccessTokenResult.SignedOut -> stop(FetchOutcome.SignedOut)
+            AccessTokenResult.Offline -> stop(FetchOutcome.Failed(FetchFailure.Offline))
         }
         return try {
-            Attempt.Answered(api.fetch(token))
+            api.fetch(token)
         } catch (_: IOException) {
-            Attempt.Stopped(FetchOutcome.Failed(FetchFailure.Offline))
+            stop(FetchOutcome.Failed(FetchFailure.Offline))
         }
     }
 

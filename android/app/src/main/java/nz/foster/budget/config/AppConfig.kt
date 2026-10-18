@@ -14,8 +14,6 @@ data class AppConfig(
             "PUBLIC_URL".takeIf { apiBaseUrl.isBlank() },
         )
 
-    val isComplete: Boolean get() = missingKeys.isEmpty()
-
     companion object {
         const val REDIRECT_URI = "nz.foster.budget:/oauth/callback"
         val SCOPES = listOf("openid", "email", "profile", "offline_access")

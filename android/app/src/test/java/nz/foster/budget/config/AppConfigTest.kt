@@ -1,7 +1,6 @@
 package nz.foster.budget.config
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppConfigTest {
@@ -14,7 +13,7 @@ class AppConfigTest {
     }
 
     @Test
-    fun `is complete when every value is set`() {
-        assertTrue(AppConfig("connected-app-test", "https://x.customers.stytch.dev", "https://host.ts.net").isComplete)
+    fun `lists nothing when every value is set`() {
+        assertEquals(emptyList<String>(), AppConfig("connected-app-test", "https://x.customers.stytch.dev", "https://host.ts.net").missingKeys)
     }
 }

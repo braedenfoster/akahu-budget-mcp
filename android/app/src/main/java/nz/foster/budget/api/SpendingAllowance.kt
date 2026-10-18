@@ -1,7 +1,16 @@
 package nz.foster.budget.api
 
+import java.time.Instant
+import java.time.YearMonth
+import java.time.format.DateTimeParseException
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
 
 // Every field is required with no default, so a renamed or removed field fails the contract test.
@@ -20,8 +29,7 @@ enum class AllowanceStatus {
 
 @Serializable
 data class SpendingAllowance(
-    /** `YYYY-MM`. */
-    val period: String,
+    @Serializable(with = YearMonthSerializer::class) val period: YearMonth,
     val status: AllowanceStatus,
     /** Null when there is no Budget. */
     @SerialName("amount_cents") val amountCents: Long?,
@@ -32,10 +40,29 @@ data class SpendingAllowance(
     @SerialName("committed_overspend_cents") val committedOverspendCents: Long?,
     @SerialName("uncategorized_spent_cents") val uncategorizedSpentCents: Long?,
     @SerialName("uncategorized_count") val uncategorizedCount: Int,
-    /** ISO-8601 instant of the last Akahu sync. */
-    @SerialName("data_as_of") val dataAsOf: String?,
+    /** The last Akahu sync. */
+    @Serializable(with = InstantSerializer::class) @SerialName("data_as_of") val dataAsOf: Instant?,
     val stale: Boolean,
 )
+
+private abstract class IsoStringSerializer<T : Any>(name: String, private val parse: (String) -> T) : KSerializer<T> {
+    override val descriptor = PrimitiveSerialDescriptor(name, PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): T {
+        val text = decoder.decodeString()
+        return try {
+            parse(text)
+        } catch (e: DateTimeParseException) {
+            throw SerializationException("bad ${descriptor.serialName}: $text", e)
+        }
+    }
+
+    override fun serialize(encoder: Encoder, value: T) = encoder.encodeString(value.toString())
+}
+
+private object YearMonthSerializer : IsoStringSerializer<YearMonth>("nz.foster.budget.YearMonth", YearMonth::parse)
+
+private object InstantSerializer : IsoStringSerializer<Instant>("nz.foster.budget.Instant", Instant::parse)
 
 private val json = Json { ignoreUnknownKeys = true }
 

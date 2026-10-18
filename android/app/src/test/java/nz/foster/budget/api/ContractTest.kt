@@ -1,6 +1,7 @@
 package nz.foster.budget.api
 
-import java.io.File
+import java.time.Instant
+import java.time.YearMonth
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -8,17 +9,11 @@ import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
 import org.junit.Test
 
 class ContractTest {
-    private val contractsDir = File(
-        System.getProperty("budget.contractsDir") ?: error("budget.contractsDir is not set; run through Gradle"),
-    )
-
-    private fun contract(state: String) = File(contractsDir, "spending-allowance.$state.json").readText()
-
     @Test
     fun `every contract file parses`() {
         val files = contractsDir.listFiles { f -> f.name.startsWith("spending-allowance.") && f.name.endsWith(".json") }
@@ -30,10 +25,10 @@ class ContractTest {
 
     @Test
     fun `ok parses every field the app reads`() {
-        val a = parseSpendingAllowance(contract("ok"))
+        val a = contractAllowance("ok")
 
         assertEquals(AllowanceStatus.Ok, a.status)
-        assertEquals("2026-10", a.period)
+        assertEquals(YearMonth.of(2026, 10), a.period)
         assertEquals(36500L, a.amountCents)
         assertEquals(15029L, a.perWeekCents)
         assertEquals(17, a.daysLeft)
@@ -41,13 +36,13 @@ class ContractTest {
         assertEquals(0L, a.committedOverspendCents)
         assertEquals(1500L, a.uncategorizedSpentCents)
         assertEquals(1, a.uncategorizedCount)
-        assertEquals("2026-10-15T08:00:00.000Z", a.dataAsOf)
+        assertEquals(Instant.parse("2026-10-15T08:00:00Z"), a.dataAsOf)
         assertFalse(a.stale)
     }
 
     @Test
     fun `over has a negative amount and no per-week figure`() {
-        val a = parseSpendingAllowance(contract("over"))
+        val a = contractAllowance("over")
 
         assertEquals(AllowanceStatus.Over, a.status)
         assertEquals(-11500L, a.amountCents)
@@ -56,7 +51,7 @@ class ContractTest {
 
     @Test
     fun `no_budget has no amounts`() {
-        val a = parseSpendingAllowance(contract("no_budget"))
+        val a = contractAllowance("no_budget")
 
         assertEquals(AllowanceStatus.NoBudget, a.status)
         assertNull(a.amountCents)
@@ -68,12 +63,12 @@ class ContractTest {
 
     @Test
     fun `stale is flagged`() {
-        assertTrue(parseSpendingAllowance(contract("stale")).stale)
+        assertTrue(contractAllowance("stale").stale)
     }
 
     @Test
     fun `removing any field the app reads fails the parse`() {
-        val root = Json.parseToJsonElement(contract("ok")).jsonObject
+        val root = Json.parseToJsonElement(contractJson("ok")).jsonObject
         val block = root.getValue("spending_allowance").jsonObject
         val readFields = listOf(
             "period", "status", "amount_cents", "per_week_cents", "days_left",
@@ -83,18 +78,28 @@ class ContractTest {
 
         for (field in readFields) {
             val trimmed = JsonObject(mapOf("spending_allowance" to JsonObject(block - field)))
-            try {
-                parseSpendingAllowance(trimmed.toString())
-                fail("parse succeeded without $field")
-            } catch (_: SerializationException) {
-            }
+            assertThrows(field, SerializationException::class.java) { parseSpendingAllowance(trimmed.toString()) }
         }
     }
 
     @Test
     fun `unknown keys are ignored`() {
-        val json = contract("ok").replace("\"stale\"", "\"something_new\": 1, \"stale\"")
+        val json = contractJson("ok").replace("\"stale\"", "\"something_new\": 1, \"stale\"")
 
         assertEquals(36500L, parseSpendingAllowance(json).amountCents)
+    }
+
+    @Test
+    fun `a malformed period fails the parse`() {
+        val body = contractJson("ok").replace("\"2026-10\"", "\"October 2026\"")
+
+        assertThrows(SerializationException::class.java) { parseSpendingAllowance(body) }
+    }
+
+    @Test
+    fun `a malformed data_as_of fails the parse`() {
+        val body = contractJson("ok").replace("\"2026-10-15T08:00:00.000Z\"", "\"15 Oct 2026\"")
+
+        assertThrows(SerializationException::class.java) { parseSpendingAllowance(body) }
     }
 }

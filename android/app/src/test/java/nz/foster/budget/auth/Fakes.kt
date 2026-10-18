@@ -1,10 +1,5 @@
 package nz.foster.budget.auth
 
-import nz.foster.budget.cache.CachedFigure
-import nz.foster.budget.cache.FetchFailure
-import nz.foster.budget.cache.FigureCache
-import nz.foster.budget.cache.LastFetch
-
 class InMemoryTokenStore(var session: Session? = null) : TokenStore {
     override fun load() = session
     override fun save(session: Session) {
@@ -12,24 +7,6 @@ class InMemoryTokenStore(var session: Session? = null) : TokenStore {
     }
     override fun clear() {
         session = null
-    }
-}
-
-class InMemoryFigureCache(var figure: CachedFigure? = null) : FigureCache {
-    private var failure: LastFetch.Failed? = null
-
-    override fun read() = figure
-    override fun lastFetch(): LastFetch? = failure ?: figure?.let { LastFetch.Succeeded(it.fetchedAtMillis) }
-    override fun recordSuccess(figure: CachedFigure) {
-        this.figure = figure
-        failure = null
-    }
-    override fun recordFailure(failure: FetchFailure, atMillis: Long) {
-        this.failure = LastFetch.Failed(atMillis, failure)
-    }
-    override fun clear() {
-        figure = null
-        failure = null
     }
 }
 

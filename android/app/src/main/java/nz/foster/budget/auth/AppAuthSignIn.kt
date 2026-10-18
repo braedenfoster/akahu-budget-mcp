@@ -4,9 +4,6 @@ import android.content.Intent
 import android.net.Uri
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationRequest
 import net.openid.appauth.AuthorizationResponse
@@ -56,26 +53,22 @@ class AppAuthSignIn(
         )
     }
 
-    private suspend fun discover(): AuthorizationServiceConfiguration = withContext(Dispatchers.Main) {
-        suspendCancellableCoroutine { cont ->
-            AuthorizationServiceConfiguration.fetchFromIssuer(Uri.parse(config.authIssuer)) { serviceConfig, error ->
-                if (serviceConfig != null) {
-                    cont.resume(serviceConfig)
-                } else {
-                    cont.resumeWithException(SignInException("discovery failed: ${error?.errorDescription ?: error?.error}"))
-                }
+    private suspend fun discover(): AuthorizationServiceConfiguration = awaitAppAuth { cont ->
+        AuthorizationServiceConfiguration.fetchFromIssuer(Uri.parse(config.authIssuer)) { serviceConfig, error ->
+            if (serviceConfig != null) {
+                cont.resume(serviceConfig)
+            } else {
+                cont.resumeWithException(SignInException("discovery failed: ${error?.errorDescription ?: error?.error}"))
             }
         }
     }
 
-    private suspend fun exchange(response: AuthorizationResponse): TokenResponse = withContext(Dispatchers.Main) {
-        suspendCancellableCoroutine { cont ->
-            service.performTokenRequest(response.createTokenExchangeRequest()) { tokens, error ->
-                if (tokens != null) {
-                    cont.resume(tokens)
-                } else {
-                    cont.resumeWithException(SignInException("token exchange failed: ${error?.errorDescription ?: error?.error}"))
-                }
+    private suspend fun exchange(response: AuthorizationResponse): TokenResponse = awaitAppAuth { cont ->
+        service.performTokenRequest(response.createTokenExchangeRequest()) { tokens, error ->
+            if (tokens != null) {
+                cont.resume(tokens)
+            } else {
+                cont.resumeWithException(SignInException("token exchange failed: ${error?.errorDescription ?: error?.error}"))
             }
         }
     }

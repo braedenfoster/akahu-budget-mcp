@@ -1,7 +1,8 @@
 package nz.foster.budget.auth
 
 import kotlinx.coroutines.test.runTest
-import nz.foster.budget.cache.CachedFigure
+import nz.foster.budget.cache.CachedAllowance
+import nz.foster.budget.cache.InMemoryAllowanceCache
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -11,7 +12,7 @@ import org.junit.Test
 class AuthManagerTest {
     private val now = 1_000_000L
     private val store = InMemoryTokenStore()
-    private val cache = InMemoryFigureCache(CachedFigure("""{"spending_allowance":{}}""", now - 1))
+    private val cache = InMemoryAllowanceCache(CachedAllowance("""{"spending_allowance":{}}""", now - 1))
 
     private fun manager(refresher: TokenRefresher = ScriptedRefresher()) =
         AuthManager(store, refresher, cache, clock = { now })
@@ -83,7 +84,7 @@ class AuthManagerTest {
     }
 
     @Test
-    fun `a rejected refresh clears the token and the cached figure and signs out`() = runTest {
+    fun `a rejected refresh clears the token and the cached Spending allowance and signs out`() = runTest {
         store.session = session(expiresAt = now - 1)
         val auth = manager(ScriptedRefresher(RefreshResult.Rejected))
 
@@ -92,11 +93,11 @@ class AuthManagerTest {
         assertEquals(AccessTokenResult.SignedOut, result)
         assertEquals(AuthState.SignedOut, auth.state.value)
         assertNull(store.session)
-        assertNull(cache.figure)
+        assertNull(cache.cached)
     }
 
     @Test
-    fun `an unreachable server keeps the session and the cached figure`() = runTest {
+    fun `an unreachable server keeps the session and the cached Spending allowance`() = runTest {
         store.session = session(expiresAt = now - 1)
         val auth = manager(ScriptedRefresher(RefreshResult.Unreachable))
 
@@ -105,7 +106,7 @@ class AuthManagerTest {
         assertEquals(AccessTokenResult.Offline, result)
         assertEquals(AuthState.SignedIn, auth.state.value)
         assertNotNull(store.session)
-        assertNotNull(cache.figure)
+        assertNotNull(cache.cached)
     }
 
     @Test
@@ -113,11 +114,11 @@ class AuthManagerTest {
         val auth = manager()
 
         assertEquals(AccessTokenResult.SignedOut, auth.accessToken())
-        assertNull(cache.figure)
+        assertNull(cache.cached)
     }
 
     @Test
-    fun `sign out clears the token and the cached figure`() = runTest {
+    fun `sign out clears the token and the cached Spending allowance`() = runTest {
         store.session = session()
         val auth = manager()
 
@@ -125,7 +126,7 @@ class AuthManagerTest {
 
         assertEquals(AuthState.SignedOut, auth.state.value)
         assertNull(store.session)
-        assertNull(cache.figure)
+        assertNull(cache.cached)
     }
 
     @Test

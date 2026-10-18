@@ -1,61 +1,57 @@
 package nz.foster.budget.widget
 
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 import nz.foster.budget.allowance.AllowanceSnapshot
+import nz.foster.budget.allowance.AmountTone
+import nz.foster.budget.allowance.amountTone
+import nz.foster.budget.allowance.formatMonth
 import nz.foster.budget.allowance.formatNzd
+import nz.foster.budget.allowance.householdDateFormat
 import nz.foster.budget.api.AllowanceStatus
 import nz.foster.budget.auth.AuthState
 import nz.foster.budget.cache.LastFetch
-import nz.foster.budget.ui.formatMonth
-import nz.foster.budget.ui.parseInstant
 
 /**
- * What the home-screen widget shows. `offline` means the latest fetch failed (network or server),
- * so the figure is the last good response. It is independent of `stale`, which the server sets.
+ * What the home-screen widget shows. `showsOfflineMark` means the latest fetch failed (network or server),
+ * so the widget shows the last good response. It is independent of `stale`, which the server sets.
  */
 sealed interface WidgetState {
     data object SignedOut : WidgetState
 
     /** Signed in, but no good response is cached yet. */
-    data class NoFigure(val offline: Boolean) : WidgetState
+    data class NoAllowanceYet(val showsOfflineMark: Boolean) : WidgetState
 
-    data class NoBudget(val month: String, val offline: Boolean) : WidgetState
+    data class NoBudget(val month: String, val showsOfflineMark: Boolean) : WidgetState
 
-    data class Figure(
+    data class Allowance(
         val amount: String,
-        val over: Boolean,
+        val tone: AmountTone,
         val perWeek: String?,
         val daysLeft: Int,
-        val stale: Boolean,
-        /** The Data-as-of date, set only when [stale]. */
+        /** The Data-as-of date, set only when the response is stale. */
         val asOf: String?,
-        val offline: Boolean,
-        /** The Uncategorized count, or null when it is 0. */
-        val uncategorizedBadge: Int?,
+        val showsOfflineMark: Boolean,
+        /** Null when the Uncategorized count is 0, so the badge is hidden. */
+        val uncategorizedBadgeCount: Int?,
     ) : WidgetState
 }
 
-private val asOfFormat = DateTimeFormatter.ofPattern("d MMM", Locale("en", "NZ"))
+private val asOfFormat = householdDateFormat("d MMM")
 
-fun widgetState(snapshot: AllowanceSnapshot, zone: ZoneId): WidgetState {
+fun widgetState(snapshot: AllowanceSnapshot): WidgetState {
     if (snapshot.auth == AuthState.SignedOut) return WidgetState.SignedOut
-    val offline = snapshot.lastFetch is LastFetch.Failed
-    val allowance = snapshot.allowance ?: return WidgetState.NoFigure(offline)
+    val showsOfflineMark = snapshot.lastFetch is LastFetch.Failed
+    val allowance = snapshot.allowance ?: return WidgetState.NoAllowanceYet(showsOfflineMark)
     val amountCents = allowance.amountCents
     if (allowance.status == AllowanceStatus.NoBudget || amountCents == null) {
-        return WidgetState.NoBudget(formatMonth(allowance.period), offline)
+        return WidgetState.NoBudget(formatMonth(allowance.period), showsOfflineMark)
     }
-    val over = allowance.status == AllowanceStatus.Over
-    return WidgetState.Figure(
+    return WidgetState.Allowance(
         amount = formatNzd(amountCents),
-        over = over,
-        perWeek = allowance.perWeekCents?.takeUnless { over }?.let(::formatNzd),
+        tone = allowance.amountTone,
+        perWeek = allowance.perWeekCents?.takeUnless { allowance.status == AllowanceStatus.Over }?.let(::formatNzd),
         daysLeft = allowance.daysLeft,
-        stale = allowance.stale,
-        asOf = allowance.dataAsOf?.takeIf { allowance.stale }?.let(::parseInstant)?.let { asOfFormat.format(it.atZone(zone)) },
-        offline = offline,
-        uncategorizedBadge = allowance.uncategorizedCount.takeIf { it > 0 },
+        asOf = allowance.dataAsOf?.takeIf { allowance.stale }?.let(asOfFormat::format),
+        showsOfflineMark = showsOfflineMark,
+        uncategorizedBadgeCount = allowance.uncategorizedCount.takeIf { it > 0 },
     )
 }

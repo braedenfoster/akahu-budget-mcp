@@ -3,7 +3,7 @@ package nz.foster.budget.cache
 import android.content.Context
 
 /** The raw body of the last good `GET /api/spending-allowance` response. */
-data class CachedFigure(val json: String, val fetchedAtMillis: Long)
+data class CachedAllowance(val json: String, val fetchedAtMillis: Long)
 
 enum class FetchFailure {
     /** The phone could not reach the server or the token endpoint. */
@@ -21,22 +21,23 @@ sealed interface LastFetch {
 }
 
 /** The last good API response and the result of the latest fetch. Auth clears both whenever the Member is signed out. */
-interface FigureCache {
-    fun read(): CachedFigure?
+interface AllowanceCache {
+    fun read(): CachedAllowance?
     fun lastFetch(): LastFetch?
-    fun recordSuccess(figure: CachedFigure)
+    fun recordSuccess(allowance: CachedAllowance)
 
-    /** Keeps the cached figure. */
+    /** Keeps the cached Spending allowance. */
     fun recordFailure(failure: FetchFailure, atMillis: Long)
     fun clear()
 }
 
-class PrefsFigureCache(context: Context) : FigureCache {
+class PrefsAllowanceCache(context: Context) : AllowanceCache {
+    // Renaming the file would orphan cached bank figures that sign-out no longer clears.
     private val prefs = context.getSharedPreferences("figure_cache", Context.MODE_PRIVATE)
 
-    override fun read(): CachedFigure? {
+    override fun read(): CachedAllowance? {
         val json = prefs.getString(KEY_JSON, null) ?: return null
-        return CachedFigure(json, prefs.getLong(KEY_FETCHED_AT, 0L))
+        return CachedAllowance(json, prefs.getLong(KEY_FETCHED_AT, 0L))
     }
 
     override fun lastFetch(): LastFetch? {
@@ -45,10 +46,10 @@ class PrefsFigureCache(context: Context) : FigureCache {
         return read()?.let { LastFetch.Succeeded(it.fetchedAtMillis) }
     }
 
-    override fun recordSuccess(figure: CachedFigure) {
+    override fun recordSuccess(allowance: CachedAllowance) {
         prefs.edit()
-            .putString(KEY_JSON, figure.json)
-            .putLong(KEY_FETCHED_AT, figure.fetchedAtMillis)
+            .putString(KEY_JSON, allowance.json)
+            .putLong(KEY_FETCHED_AT, allowance.fetchedAtMillis)
             .remove(KEY_FAILURE)
             .remove(KEY_FAILED_AT)
             .commit()

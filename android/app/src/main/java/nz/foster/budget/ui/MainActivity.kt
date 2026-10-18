@@ -23,7 +23,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
-import java.time.ZoneId
 import kotlinx.coroutines.launch
 import net.openid.appauth.AuthorizationService
 import nz.foster.budget.R
@@ -67,7 +66,7 @@ class MainActivity : ComponentActivity() {
                         AuthState.SignedIn -> {
                             val snapshot by appGraph.allowance.snapshot.collectAsStateWithLifecycle()
                             SpendingAllowanceScreen(
-                                model = allowanceScreenModel(snapshot, ZoneId.systemDefault()),
+                                model = allowanceScreenModel(snapshot),
                                 refreshing = refreshing,
                                 onRefresh = ::refresh,
                                 onSignOut = { lifecycleScope.launch { appGraph.auth.signOut() } },
