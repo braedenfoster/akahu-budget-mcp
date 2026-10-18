@@ -13,4 +13,9 @@ Spec: `.scratch/native-android-app/spec.md` (Auth)
 - [ ] Allow the scopes `openid email profile offline_access`
 - [ ] Record the `client_id` in the git-ignored `deploy/.env` and in the Android build config (ticket 04)
 - [ ] Confirm both Members' emails are attached to Members on the Pi
-- [ ] Add the client to `deploy/phase2-funnel-oauth.md`
+- [x] Add the client to `deploy/phase2-funnel-oauth.md`
+
+## Comments
+
+- The steps are in `deploy/phase2-funnel-oauth.md` under "Android Connected App". Only the Connected App is new; the Stytch project, Members and template are reused.
+- The MCP connectors already work, so the Authorization URL is set. `/.well-known/oauth-authorization-server` should not return 400.
