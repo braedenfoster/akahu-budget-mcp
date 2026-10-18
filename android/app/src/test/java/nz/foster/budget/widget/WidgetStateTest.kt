@@ -3,6 +3,7 @@ package nz.foster.budget.widget
 import java.time.Instant
 import nz.foster.budget.allowance.AllowanceSnapshot
 import nz.foster.budget.allowance.AmountTone
+import nz.foster.budget.allowance.SpendingRing
 import nz.foster.budget.api.SpendingAllowance
 import nz.foster.budget.api.contractAllowance
 import nz.foster.budget.auth.AuthState
@@ -39,6 +40,7 @@ class WidgetStateTest {
                 asOf = null,
                 showsOfflineMark = false,
                 uncategorizedBadgeCount = 1,
+                ring = SpendingRing(fill = 0.27f, tone = AmountTone.Normal),
             ),
             state(contractAllowance("ok")),
         )
@@ -132,6 +134,30 @@ class WidgetStateTest {
             WidgetState.NoAllowanceYet(showsOfflineMark = true),
             state(null, lastFetch = LastFetch.Failed(fetchedAt, FetchFailure.Offline)),
         )
+    }
+
+    @Test
+    fun `over shows a full ring in the warning tone`() {
+        assertEquals(SpendingRing(fill = 1f, tone = AmountTone.Over), shown(contractAllowance("over")).ring)
+    }
+
+    @Test
+    fun `stale shows a grey ring`() {
+        assertEquals(SpendingRing(fill = 0.27f, tone = AmountTone.Stale), shown(contractAllowance("stale")).ring)
+    }
+
+    @Test
+    fun `the offline mark keeps the ring of the cached response`() {
+        assertEquals(shown(contractAllowance("ok")).ring, shown(contractAllowance("ok"), failedOffline).ring)
+        assertEquals(shown(contractAllowance("stale")).ring, shown(contractAllowance("stale"), failedOffline).ring)
+    }
+
+    @Test
+    fun `a zero Flexible allocation shows the amount with no ring`() {
+        val shown = shown(contractAllowance("ok").copy(flexibleAllocatedCents = 0))
+
+        assertEquals("$365.00", shown.amount)
+        assertNull(shown.ring)
     }
 
     @Test

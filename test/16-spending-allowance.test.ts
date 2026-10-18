@@ -301,6 +301,42 @@ describe("Spending allowance on get_budget (Seam 1)", () => {
   });
 });
 
+describe("flexible_allocated_cents on the Spending allowance (Seam 1)", () => {
+  it("sums Flexible allocations only, leaving out Committed Envelopes and Uncategorized", async () => {
+    const ctx = await setup([
+      sampleTransaction({ id: "f1", date: "2026-10-03", amount: -120, group: "Food" }),
+      sampleTransaction({ id: "l1", date: "2026-10-05", amount: -250, group: "Lifestyle" }),
+      sampleTransaction({ id: "h1", date: "2026-10-01", amount: -2000, group: "Housing" }),
+      sampleTransaction({ id: "x1", date: "2026-10-04", amount: -30, description: "MYSTERY" }),
+    ]);
+    setKind(ctx, "Food", "flexible");
+    setKind(ctx, "Lifestyle", "flexible");
+    allocate(ctx, "Food", 50000);
+    allocate(ctx, "Lifestyle", 20000);
+    allocate(ctx, "Housing", 250000);
+    allocate(ctx, "Uncategorized", 1000);
+
+    const sa = allowance(ctx);
+    expect(sa.flexible_allocated_cents).toBe(70000);
+    expect(sa.flexible_allocated_cents).toBe(
+      invokeTool(ctx, getBudgetTool, { period: "2026-10" }).allocated_by_kind.flexible_cents,
+    );
+  });
+
+  it("is 0 when the Budget has no Flexible allocation", async () => {
+    const ctx = await setup([
+      sampleTransaction({ id: "h1", date: "2026-10-01", amount: -2000, group: "Housing" }),
+    ]);
+    allocate(ctx, "Housing", 250000);
+    expect(allowance(ctx)).toMatchObject({ status: "ok", flexible_allocated_cents: 0 });
+  });
+
+  it("is null when there is no Budget", async () => {
+    const ctx = await setup([]);
+    expect(allowance(ctx)).toMatchObject({ status: "no_budget", flexible_allocated_cents: null });
+  });
+});
+
 describe("Committed and Flexible allocated totals on get_budget (Seam 1)", () => {
   it("totals allocations by kind and leaves Uncategorized out of both", async () => {
     const ctx = await setup([

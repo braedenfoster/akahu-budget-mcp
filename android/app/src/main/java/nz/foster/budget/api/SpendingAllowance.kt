@@ -37,6 +37,8 @@ data class SpendingAllowance(
     @SerialName("per_week_cents") val perWeekCents: Long?,
     @SerialName("days_left") val daysLeft: Int,
     @SerialName("flexible_remaining_cents") val flexibleRemainingCents: Long?,
+    /** The Flexible Envelopes' allocations, without Uncategorized. Null when there is no Budget. */
+    @SerialName("flexible_allocated_cents") val flexibleAllocatedCents: Long?,
     @SerialName("committed_overspend_cents") val committedOverspendCents: Long?,
     @SerialName("uncategorized_spent_cents") val uncategorizedSpentCents: Long?,
     @SerialName("uncategorized_count") val uncategorizedCount: Int,

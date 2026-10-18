@@ -5,6 +5,7 @@
     "committed_overspend_cents": 0,
     "data_as_of": "2026-10-13T08:00:00.000Z",
     "days_left": 17,
+    "flexible_allocated_cents": 50000,
     "flexible_remaining_cents": 38000,
     "per_week_cents": 15029,
     "per_week_display": "$150.29",

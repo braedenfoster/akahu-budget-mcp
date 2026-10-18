@@ -33,6 +33,7 @@ class ContractTest {
         assertEquals(15029L, a.perWeekCents)
         assertEquals(17, a.daysLeft)
         assertEquals(38000L, a.flexibleRemainingCents)
+        assertEquals(50000L, a.flexibleAllocatedCents)
         assertEquals(0L, a.committedOverspendCents)
         assertEquals(1500L, a.uncategorizedSpentCents)
         assertEquals(1, a.uncategorizedCount)
@@ -56,6 +57,7 @@ class ContractTest {
         assertEquals(AllowanceStatus.NoBudget, a.status)
         assertNull(a.amountCents)
         assertNull(a.flexibleRemainingCents)
+        assertNull(a.flexibleAllocatedCents)
         assertNull(a.committedOverspendCents)
         assertNull(a.uncategorizedSpentCents)
         assertEquals(1, a.uncategorizedCount)
@@ -72,7 +74,7 @@ class ContractTest {
         val block = root.getValue("spending_allowance").jsonObject
         val readFields = listOf(
             "period", "status", "amount_cents", "per_week_cents", "days_left",
-            "flexible_remaining_cents", "committed_overspend_cents", "uncategorized_spent_cents",
+            "flexible_remaining_cents", "flexible_allocated_cents", "committed_overspend_cents", "uncategorized_spent_cents",
             "uncategorized_count", "data_as_of", "stale",
         )
 

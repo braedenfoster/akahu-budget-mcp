@@ -8,7 +8,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.ColorFilter
 import androidx.glance.GlanceTheme
+import androidx.glance.Image
+import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
@@ -26,11 +29,15 @@ import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.padding
+import androidx.glance.layout.size
+import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import androidx.glance.unit.ColorProvider
 import nz.foster.budget.R
 import nz.foster.budget.allowance.AmountTone
+import nz.foster.budget.allowance.SpendingRing
 import nz.foster.budget.appGraph
 import nz.foster.budget.refresh.RefreshScheduler
 import nz.foster.budget.ui.MainActivity
@@ -85,24 +92,51 @@ private fun WidgetContent(state: WidgetState) {
 @Composable
 private fun AllowanceContent(state: WidgetState.Allowance) {
     val context = LocalContext.current
-    val amountColor = when (state.tone) {
-        AmountTone.Over -> GlanceTheme.colors.error
-        AmountTone.Stale -> GlanceTheme.colors.outline
-        AmountTone.Normal -> GlanceTheme.colors.onSurface
-    }
+    val amountColor = toneColor(state.tone, normal = GlanceTheme.colors.onSurface)
     Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(state.amount, style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = amountColor))
-        Spacer(GlanceModifier.defaultWeight())
-        state.uncategorizedBadgeCount?.let { Badge(context.getString(R.string.uncategorized_count, it)) }
+        Column(modifier = GlanceModifier.defaultWeight()) {
+            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(state.amount, style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = amountColor))
+                Spacer(GlanceModifier.defaultWeight())
+                state.uncategorizedBadgeCount?.let { Badge(context.getString(R.string.uncategorized_count, it)) }
+            }
+            Details(
+                parts = listOfNotNull(
+                    state.perWeek?.let { context.getString(R.string.per_week, it) },
+                    context.resources.getQuantityString(R.plurals.days_left, state.daysLeft, state.daysLeft),
+                    state.asOf?.let { context.getString(R.string.widget_as_of, it) },
+                ),
+                showsOfflineMark = state.showsOfflineMark,
+            )
+        }
+        state.ring?.let {
+            Spacer(GlanceModifier.width(12.dp))
+            Ring(it)
+        }
     }
-    Details(
-        parts = listOfNotNull(
-            state.perWeek?.let { context.getString(R.string.per_week, it) },
-            context.resources.getQuantityString(R.plurals.days_left, state.daysLeft, state.daysLeft),
-            state.asOf?.let { context.getString(R.string.widget_as_of, it) },
-        ),
-        showsOfflineMark = state.showsOfflineMark,
+}
+
+private val RING_SIZE = 36.dp
+private val RING_STROKE = 4.dp
+
+@Composable
+private fun Ring(ring: SpendingRing) {
+    val density = LocalContext.current.resources.displayMetrics.density
+    val color = toneColor(ring.tone, normal = GlanceTheme.colors.primary)
+    // Decorative: the amount next to it already says how much is left.
+    Image(
+        provider = ImageProvider(ringBitmap(ring.fill, (RING_SIZE.value * density).toInt(), RING_STROKE.value * density)),
+        contentDescription = null,
+        modifier = GlanceModifier.size(RING_SIZE),
+        colorFilter = ColorFilter.tint(color),
     )
+}
+
+@Composable
+private fun toneColor(tone: AmountTone, normal: ColorProvider): ColorProvider = when (tone) {
+    AmountTone.Over -> GlanceTheme.colors.error
+    AmountTone.Stale -> GlanceTheme.colors.outline
+    AmountTone.Normal -> normal
 }
 
 @Composable

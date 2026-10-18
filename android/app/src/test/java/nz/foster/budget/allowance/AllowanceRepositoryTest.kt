@@ -22,7 +22,8 @@ import org.junit.Test
 
 private const val OK_BODY =
     """{"spending_allowance":{"period":"2026-10","status":"ok","amount_cents":36500,"per_week_cents":15029,""" +
-        """"days_left":17,"flexible_remaining_cents":38000,"committed_overspend_cents":0,""" +
+        """"days_left":17,"flexible_remaining_cents":38000,"flexible_allocated_cents":50000,""" +
+        """"committed_overspend_cents":0,""" +
         """"uncategorized_spent_cents":1500,"uncategorized_count":1,"data_as_of":"2026-10-15T08:00:00.000Z","stale":false}}"""
 
 private val OLD_BODY = OK_BODY.replace("36500", "100")

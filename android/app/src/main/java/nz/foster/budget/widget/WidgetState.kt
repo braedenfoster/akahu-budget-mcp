@@ -2,10 +2,12 @@ package nz.foster.budget.widget
 
 import nz.foster.budget.allowance.AllowanceSnapshot
 import nz.foster.budget.allowance.AmountTone
+import nz.foster.budget.allowance.SpendingRing
 import nz.foster.budget.allowance.amountTone
 import nz.foster.budget.allowance.formatMonth
 import nz.foster.budget.allowance.formatNzd
 import nz.foster.budget.allowance.householdDateFormat
+import nz.foster.budget.allowance.spendingRing
 import nz.foster.budget.api.AllowanceStatus
 import nz.foster.budget.auth.AuthState
 import nz.foster.budget.cache.LastFetch
@@ -32,6 +34,8 @@ sealed interface WidgetState {
         val showsOfflineMark: Boolean,
         /** Null when the Uncategorized count is 0, so the badge is hidden. */
         val uncategorizedBadgeCount: Int?,
+        /** Null when the Flexible allocation is 0 or missing, so no ring is drawn. */
+        val ring: SpendingRing?,
     ) : WidgetState
 }
 
@@ -53,5 +57,6 @@ fun widgetState(snapshot: AllowanceSnapshot): WidgetState {
         asOf = allowance.dataAsOf?.takeIf { allowance.stale }?.let(asOfFormat::format),
         showsOfflineMark = showsOfflineMark,
         uncategorizedBadgeCount = allowance.uncategorizedCount.takeIf { it > 0 },
+        ring = spendingRing(allowance),
     )
 }
