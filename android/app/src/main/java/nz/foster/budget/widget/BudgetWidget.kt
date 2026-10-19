@@ -130,7 +130,7 @@ private fun Ring(ring: SpendingRing) {
     val color = toneColor(ring.tone, normal = GlanceTheme.colors.primary)
     // Decorative: the amount next to it already says how much is left.
     Image(
-        provider = ImageProvider(ringBitmap(ring.fill, (RING_SIZE.value * density).toInt(), RING_STROKE.value * density)),
+        provider = ImageProvider(ringBitmap(ring, (RING_SIZE.value * density).toInt(), RING_STROKE.value * density)),
         contentDescription = null,
         modifier = GlanceModifier.size(RING_SIZE),
         colorFilter = ColorFilter.tint(color),

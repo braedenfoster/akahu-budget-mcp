@@ -6,6 +6,7 @@ import nz.foster.budget.allowance.AmountTone
 import nz.foster.budget.allowance.SpendingRing
 import nz.foster.budget.api.SpendingAllowance
 import nz.foster.budget.api.contractAllowance
+import nz.foster.budget.api.contractPace
 import nz.foster.budget.auth.AuthState
 import nz.foster.budget.cache.FetchFailure
 import nz.foster.budget.cache.LastFetch
@@ -40,7 +41,7 @@ class WidgetStateTest {
                 asOf = null,
                 showsOfflineMark = false,
                 uncategorizedBadgeCount = 1,
-                ring = SpendingRing(fill = 0.27f, tone = AmountTone.Normal),
+                ring = SpendingRing(fill = 0.27f, pace = contractPace, tone = AmountTone.Normal),
             ),
             state(contractAllowance("ok")),
         )
@@ -138,12 +139,12 @@ class WidgetStateTest {
 
     @Test
     fun `over shows a full ring in the warning tone`() {
-        assertEquals(SpendingRing(fill = 1f, tone = AmountTone.Over), shown(contractAllowance("over")).ring)
+        assertEquals(SpendingRing(fill = 1f, pace = contractPace, tone = AmountTone.Over), shown(contractAllowance("over")).ring)
     }
 
     @Test
     fun `stale shows a grey ring`() {
-        assertEquals(SpendingRing(fill = 0.27f, tone = AmountTone.Stale), shown(contractAllowance("stale")).ring)
+        assertEquals(SpendingRing(fill = 0.27f, pace = contractPace, tone = AmountTone.Stale), shown(contractAllowance("stale")).ring)
     }
 
     @Test

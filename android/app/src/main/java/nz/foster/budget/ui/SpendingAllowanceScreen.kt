@@ -26,6 +26,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import kotlin.math.cos
+import kotlin.math.sin
 import nz.foster.budget.R
 import nz.foster.budget.allowance.AmountTone
 import nz.foster.budget.allowance.SpendingRing
@@ -126,6 +128,11 @@ private fun Ring(ring: SpendingRing) {
         if (ring.fill > 0f) {
             drawArc(color, -90f, ring.fill * 360f, false, topLeft, arcSize, style = Stroke(strokePx, cap = StrokeCap.Round))
         }
+        // Same tick as the widget: it reaches inside the ring to stay visible once the fill passes it.
+        val angle = Math.toRadians(-90.0 + ring.pace * 360.0)
+        val direction = Offset(cos(angle).toFloat(), sin(angle).toFloat())
+        val radius = size.minDimension / 2
+        drawLine(color, center + direction * radius, center + direction * (radius - 2 * strokePx), strokeWidth = strokePx / 2)
     }
 }
 

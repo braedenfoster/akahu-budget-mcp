@@ -23,7 +23,7 @@ import { optionalPeriod as periodInput } from "./schemas.js";
 export const getBudgetTool = defineTool({
   name: "get_budget",
   description:
-    "Return the Budget for a Period: per-Envelope allocated/spent/remaining/slack (integer cents), expected + actual income, totals, Household headroom, allocations totalled by kind (Committed and Flexible, excluding Uncategorized), the Spending allowance (Flexible money left, its parts, the Flexible allocation it comes from, per-week figure, status, Uncategorized count, stale flag), and data-as-of. All math is server-side.",
+    "Return the Budget for a Period: per-Envelope allocated/spent/remaining/slack (integer cents), expected + actual income, totals, Household headroom, allocations totalled by kind (Committed and Flexible, excluding Uncategorized), the Spending allowance (Flexible money left, its parts, the Flexible allocation it comes from, per-week figure, days left and Period length, status, Uncategorized count, stale flag), and data-as-of. All math is server-side.",
   inputSchema: { period: periodInput },
   handler: (ctx, input) => {
     const period = resolvePeriod(ctx, input.period);

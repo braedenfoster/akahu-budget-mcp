@@ -16,6 +16,8 @@ export interface SpendingAllowance {
   /** per_week_cents as dollars; null whenever per_week_cents is null. */
   per_week_display: string | null;
   days_left: number;
+  /** Calendar days in the Period, including a pay-cycle Period that spans two months. */
+  period_days: number;
   flexible_remaining_cents: number | null;
   /** The Flexible Envelopes' allocations, without Uncategorized; null when no_budget. */
   flexible_allocated_cents: number | null;
@@ -39,13 +41,15 @@ export function computeSpendingAllowance(ctx: AppContext, period: Period): Spend
     .from(budgetCategories)
     .all();
   const uncategorizedId = categories.find((c) => c.isSystem)?.id;
-  const daysLeft = Math.min(daysLeftInPeriod(period, householdToday(ctx)), periodLengthDays(period));
+  const periodDays = periodLengthDays(period);
+  const daysLeft = Math.min(daysLeftInPeriod(period, householdToday(ctx)), periodDays);
 
   const dataAsOf = getDataAsOf(ctx);
 
   const base = {
     period: period.key,
     days_left: daysLeft,
+    period_days: periodDays,
     uncategorized_count: uncategorizedCount(ctx, period, uncategorizedId),
     data_as_of: dataAsOf,
     stale: isStale(dataAsOf, ctx.now()),

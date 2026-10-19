@@ -8,7 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class WidgetRingTest {
-    private val ring = SpendingRing(fill = 0.27f, tone = AmountTone.Normal)
+    private val ring = SpendingRing(fill = 0.27f, pace = 0.45f, tone = AmountTone.Normal)
 
     @Test
     fun `a 3-cell widget shows the ring`() {

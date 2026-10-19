@@ -6,6 +6,7 @@ import { addPlannedPurchaseTool } from "../src/tools/planned.js";
 import { invokeTool } from "../src/tools/types.js";
 import {
   putSetting,
+  SETTING_BUDGET_MONTH_START_DAY,
   SETTING_HOUSEHOLD_TIMEZONE,
   SETTING_LAST_SYNC_AT,
   type AppContext,
@@ -334,6 +335,32 @@ describe("flexible_allocated_cents on the Spending allowance (Seam 1)", () => {
   it("is null when there is no Budget", async () => {
     const ctx = await setup([]);
     expect(allowance(ctx)).toMatchObject({ status: "no_budget", flexible_allocated_cents: null });
+  });
+});
+
+describe("period_days on the Spending allowance (Seam 1)", () => {
+  const food = [sampleTransaction({ id: "f1", date: "2026-10-03", amount: -100, group: "Food" })];
+
+  it("is the calendar month's length by default", async () => {
+    const ctx = await setup(food);
+    allocate(ctx, "Food", 50000);
+    expect(allowance(ctx)).toMatchObject({ status: "ok", period_days: 31 });
+    expect(allowance(ctx, "2026-11").period_days).toBe(30);
+  });
+
+  it("is the pay-cycle Period's length, which spans two months", async () => {
+    const ctx = await setup(food);
+    putSetting(ctx, SETTING_BUDGET_MONTH_START_DAY, "20");
+    allocate(ctx, "Food", 50000, "2026-09");
+    // 20 Sep to 19 Oct; 15 Oct leaves 5 days.
+    expect(allowance(ctx, "2026-09")).toMatchObject({ status: "ok", period_days: 30, days_left: 5 });
+    // 20 Jan to 19 Feb.
+    expect(allowance(ctx, "2026-01").period_days).toBe(31);
+  });
+
+  it("is present when there is no Budget", async () => {
+    const ctx = await setup([]);
+    expect(allowance(ctx)).toMatchObject({ status: "no_budget", period_days: 31 });
   });
 });
 

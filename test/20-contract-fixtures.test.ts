@@ -81,11 +81,17 @@ describe("contracts/spending-allowance.<state>.json", () => {
   it("generates one file per allowance state", () => {
     const sa = (state: string) =>
       (JSON.parse(fs.readFileSync(path.join(CONTRACTS_DIR, `spending-allowance.${state}.json`), "utf8")) as {
-        spending_allowance: { status: string; stale: boolean; flexible_allocated_cents: number | null };
+        spending_allowance: {
+          status: string;
+          stale: boolean;
+          flexible_allocated_cents: number | null;
+          period_days: number;
+        };
       }).spending_allowance;
     expect(sa("ok")).toMatchObject({ status: "ok", stale: false, flexible_allocated_cents: 50000 });
     expect(sa("over")).toMatchObject({ status: "over", stale: false, flexible_allocated_cents: 50000 });
     expect(sa("no_budget")).toMatchObject({ status: "no_budget", stale: false, flexible_allocated_cents: null });
     expect(sa("stale")).toMatchObject({ status: "ok", stale: true, flexible_allocated_cents: 50000 });
+    for (const state of Object.keys(STATES)) expect(sa(state).period_days).toBe(31);
   });
 });

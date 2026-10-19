@@ -10,6 +10,7 @@
     "per_week_cents": null,
     "per_week_display": null,
     "period": "2026-10",
+    "period_days": 31,
     "stale": false,
     "status": "no_budget",
     "uncategorized_count": 1,

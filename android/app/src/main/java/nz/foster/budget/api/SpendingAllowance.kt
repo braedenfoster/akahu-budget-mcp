@@ -36,6 +36,8 @@ data class SpendingAllowance(
     /** Null when there is no Budget or the amount is negative. */
     @SerialName("per_week_cents") val perWeekCents: Long?,
     @SerialName("days_left") val daysLeft: Int,
+    /** Calendar days in the Period, including a pay-cycle Period that spans two months. */
+    @SerialName("period_days") val periodDays: Int,
     @SerialName("flexible_remaining_cents") val flexibleRemainingCents: Long?,
     /** The Flexible Envelopes' allocations, without Uncategorized. Null when there is no Budget. */
     @SerialName("flexible_allocated_cents") val flexibleAllocatedCents: Long?,

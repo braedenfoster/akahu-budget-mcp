@@ -9,3 +9,6 @@ val contractsDir = File(
 fun contractJson(state: String): String = File(contractsDir, "spending-allowance.$state.json").readText()
 
 fun contractAllowance(state: String): SpendingAllowance = parseSpendingAllowance(contractJson(state))
+
+/** Every fixture is 15 Oct, with 17 of the Period's 31 days left. */
+val contractPace = (14.0 / 31).toFloat()

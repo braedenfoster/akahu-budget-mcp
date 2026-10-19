@@ -10,6 +10,7 @@
     "per_week_cents": 15029,
     "per_week_display": "$150.29",
     "period": "2026-10",
+    "period_days": 31,
     "stale": false,
     "status": "ok",
     "uncategorized_count": 1,
