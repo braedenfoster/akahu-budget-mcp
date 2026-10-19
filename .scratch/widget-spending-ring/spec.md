@@ -34,6 +34,8 @@ A ring shows the share of the Flexible allocation that is spent. A tick on the r
   - A negative `amount_cents` gives a full ring.
   - The fraction counts Committed overspend and Uncategorized spend as spent, because they already reduce the Spending allowance.
 - Pace fraction: `(period_days − days_left) ÷ period_days`, limited to 0..1.
+  - `days_left` counts today, so the tick marks the start of today. On the last day of the Period, the tick is one day short of the top.
+  - The tick does not mark the end of today. The fill shows spending up to the last nightly sync, so a tick at the end of today would run about one day ahead of the data.
 - The ring states:
 
 | State | Ring |
@@ -48,6 +50,7 @@ A ring shows the share of the Flexible allocation that is spent. A tick on the r
 
 - The offline mark does not change the ring. It keeps the ring of the cached response.
 - The tick shows in every state that shows a ring.
+- The fill has round ends. A round end makes the fill look about half a stroke longer (about 7° on the widget ring). The nightly sync is coarser than this, so the ring keeps the round ends.
 
 ### Widget
 
