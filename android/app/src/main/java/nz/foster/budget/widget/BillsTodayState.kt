@@ -32,7 +32,7 @@ sealed interface BillsTodayState {
     data class NoneToday(val next: OccurrenceRow?, val asOf: String?, val showsOfflineMark: Boolean) : BillsTodayState
 }
 
-private const val MAX_ROWS = 3
+internal const val BILLS_TODAY_MAX_ROWS = 3
 
 private val asOfFormat = householdDateFormat("d MMM")
 
@@ -46,8 +46,8 @@ fun billsTodayState(snapshot: AllowanceSnapshot): BillsTodayState {
         return BillsTodayState.NoneToday(bills.nextUpcoming?.let { occurrenceRow(it, bills.stale) }, asOf, showsOfflineMark)
     }
     return BillsTodayState.Today(
-        rows = bills.today.take(MAX_ROWS).map { occurrenceRow(it, bills.stale) },
-        moreCount = (bills.today.size - MAX_ROWS).coerceAtLeast(0),
+        rows = bills.today.take(BILLS_TODAY_MAX_ROWS).map { occurrenceRow(it, bills.stale) },
+        moreCount = (bills.today.size - BILLS_TODAY_MAX_ROWS).coerceAtLeast(0),
         asOf = asOf,
         showsOfflineMark = showsOfflineMark,
     )

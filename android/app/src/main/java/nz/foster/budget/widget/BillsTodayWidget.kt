@@ -14,6 +14,7 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.provideContent
 import androidx.glance.layout.Alignment
+import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxWidth
@@ -56,22 +57,28 @@ private fun BillsTodayContent(state: BillsTodayState) {
     WidgetFrame(verticalAlignment = Alignment.Top) {
         Title()
         when (state) {
-            BillsTodayState.SignedOut -> Headline(context.getString(R.string.sign_in))
+            BillsTodayState.SignedOut -> Message(context.getString(R.string.sign_in))
             is BillsTodayState.NothingCached -> {
-                Headline(context.getString(R.string.widget_no_allowance_yet))
+                Message(context.getString(R.string.widget_no_allowance_yet))
                 Details(showsOfflineMark = state.showsOfflineMark)
             }
             is BillsTodayState.BillsUnavailable -> {
-                Headline(context.getString(R.string.widget_bills_unavailable))
+                Message(context.getString(R.string.widget_bills_unavailable))
                 Details(showsOfflineMark = state.showsOfflineMark)
             }
             is BillsTodayState.NoneToday -> {
-                Headline(context.getString(R.string.widget_no_bills_today))
+                Message(context.getString(R.string.widget_no_bills_today))
                 state.next?.let { NextBill(it) }
                 Details(parts = asOfParts(state.asOf), showsOfflineMark = state.showsOfflineMark)
             }
             is BillsTodayState.Today -> {
-                state.rows.forEach { BillRow(it) }
+                // A slot per possible row shares the height, so rows fill the widget and keep their place whatever the count.
+                Column(modifier = GlanceModifier.defaultWeight().fillMaxWidth()) {
+                    repeat(BILLS_TODAY_MAX_ROWS) { i ->
+                        val row = state.rows.getOrNull(i)
+                        if (row == null) Spacer(GlanceModifier.defaultWeight()) else BillRow(row, GlanceModifier.defaultWeight())
+                    }
+                }
                 Details(
                     parts = listOfNotNull(state.moreCount.takeIf { it > 0 }?.let { context.getString(R.string.widget_more_bills, it) }) +
                         asOfParts(state.asOf),
@@ -82,14 +89,22 @@ private fun BillsTodayContent(state: BillsTodayState) {
     }
 }
 
+private val TITLE_SIZE = 18.sp
+private val ROW_SIZE = 16.sp
+
 @Composable
 private fun Title() {
     Text(
         LocalContext.current.getString(R.string.bills_widget_label),
         modifier = GlanceModifier.padding(bottom = 4.dp),
         maxLines = 1,
-        style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = GlanceTheme.colors.onSurfaceVariant),
+        style = TextStyle(fontSize = TITLE_SIZE, fontWeight = FontWeight.Medium, color = GlanceTheme.colors.onSurface),
     )
+}
+
+@Composable
+private fun Message(text: String) {
+    Text(text, maxLines = 1, style = TextStyle(fontSize = ROW_SIZE, color = GlanceTheme.colors.onSurface))
 }
 
 @Composable
@@ -101,17 +116,17 @@ private fun NextBill(next: OccurrenceRow) {
     Text(
         LocalContext.current.getString(R.string.widget_next_bill, next.name, next.weekday, next.amount),
         maxLines = 1,
-        style = TextStyle(fontSize = 14.sp, color = toneColor(next.tone, normal = GlanceTheme.colors.onSurface)),
+        style = TextStyle(fontSize = ROW_SIZE, color = toneColor(next.tone, normal = GlanceTheme.colors.onSurface)),
     )
 }
 
 @Composable
-private fun BillRow(row: OccurrenceRow) {
+private fun BillRow(row: OccurrenceRow, modifier: GlanceModifier) {
     val context = LocalContext.current
     val paid = context.getString(R.string.bill_paid)
-    val style = TextStyle(fontSize = 14.sp, color = toneColor(row.tone, normal = GlanceTheme.colors.onSurface))
-    Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(row.weekday, modifier = GlanceModifier.width(36.dp), maxLines = 1, style = style)
+    val style = TextStyle(fontSize = ROW_SIZE, color = toneColor(row.tone, normal = GlanceTheme.colors.onSurface))
+    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(row.weekday, modifier = GlanceModifier.width(44.dp), maxLines = 1, style = style)
         Text(row.name, modifier = GlanceModifier.defaultWeight(), maxLines = 1, style = style)
         if (row.paid) {
             Text(context.getString(R.string.bill_paid_tick), modifier = GlanceModifier.semantics { contentDescription = paid }, style = style)
