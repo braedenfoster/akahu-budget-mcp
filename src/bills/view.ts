@@ -1,9 +1,11 @@
 import { and, lt } from "drizzle-orm";
 import { isSpendSql } from "../budget/engine.js";
-import { dataFreshness, type AppContext } from "../context.js";
+import { dataFreshness, householdTimezone, type AppContext } from "../context.js";
 import { bills, transactions, type Bill } from "../db/schema.js";
 import { buildMatcher } from "../matching/matcher.js";
 import { formatDollars } from "../money.js";
+import { localDate } from "../period.js";
+import { addDays, daysBetween, fromUtc, toUtc } from "./dates.js";
 
 export type BillOccurrenceState = "paid" | "upcoming" | "due" | "overdue" | "missed";
 
@@ -60,8 +62,7 @@ interface Matches {
  * call this rather than redo the date math, so Claude and the phones agree.
  */
 export function computeBillsView(ctx: AppContext, today: string): BillsView {
-  const all = ctx.db.select().from(bills).all();
-  const matches = matchDebits(ctx, all);
+  const { all, matches } = billsWithMatches(ctx);
   const weekStart = addDays(today, -WEEK_BEHIND_DAYS);
   const weekEnd = addDays(today, WEEK_AHEAD_DAYS);
   const occurrences = all
@@ -77,6 +78,42 @@ export function computeBillsView(ctx: AppContext, today: string): BillsView {
     due_total_display: formatDollars(dueTotal),
     ...dataFreshness(ctx),
   };
+}
+
+/** The ids of the debits that pay an occurrence of an active Bill. */
+export function debitsPayingActiveBills(ctx: AppContext): Set<string> {
+  const { all, matches } = billsWithMatches(ctx);
+  return new Set(
+    all
+      .filter((bill) => bill.status === "active")
+      .flatMap((bill) => (matches.byBill.get(bill.id) ?? []).map((d) => d.id)),
+  );
+}
+
+/**
+ * Each Bill's missed due dates from `from` to `until`, both inclusive, keyed by
+ * Bill id. Due dates before the Bill was created are left out: a new Bill may
+ * have no debits in the history yet.
+ */
+export function missedDueDates(ctx: AppContext, from: string, until: string, today: string): Map<number, string[]> {
+  const { all, matches } = billsWithMatches(ctx);
+  const timeZone = householdTimezone(ctx);
+  return new Map(
+    all.map((bill) => {
+      const created = localDate(new Date(bill.createdAt), timeZone);
+      return [
+        bill.id,
+        dueDatesBetween(bill, created > from ? created : from, until).filter(
+          (date) => occurrence(bill, date, today, matches).state === "missed",
+        ),
+      ];
+    }),
+  );
+}
+
+function billsWithMatches(ctx: AppContext): { all: Bill[]; matches: Matches } {
+  const all = ctx.db.select().from(bills).all();
+  return { all, matches: matchDebits(ctx, all) };
 }
 
 /**
@@ -131,10 +168,13 @@ function occurrence(bill: Bill, dueDate: string, today: string, matches: Matches
 /** The median of the Bill's latest matched debits, or its expected amount before any match. */
 function estimate(bill: Bill, matches: Matches): number {
   const latest = (matches.byBill.get(bill.id) ?? []).slice(0, ESTIMATE_FROM_DEBITS).map((d) => d.amountCents);
-  if (latest.length === 0) return bill.expectedAmountCents;
-  latest.sort((a, b) => a - b);
-  const mid = Math.floor(latest.length / 2);
-  return latest.length % 2 === 1 ? latest[mid]! : Math.round((latest[mid - 1]! + latest[mid]!) / 2);
+  return latest.length === 0 ? bill.expectedAmountCents : medianCents(latest);
+}
+
+export function medianCents(amounts: number[]): number {
+  const sorted = [...amounts].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[mid]! : Math.round((sorted[mid - 1]! + sorted[mid]!) / 2);
 }
 
 function occurrenceKey(billId: number, dueDate: string): string {
@@ -194,8 +234,11 @@ function matchDebits(ctx: AppContext, all: Bill[]): Matches {
   return { paid, byBill };
 }
 
+/** The fields that set a Bill's due dates. */
+export type BillSchedule = Pick<Bill, "cadence" | "anchorWeekday" | "anchorDay" | "anchorDate" | "endDate">;
+
 /** The Bill's due dates from `from` to `until`, both inclusive. An ended Bill has none after its end date. */
-function dueDatesBetween(bill: Bill, from: string, until: string): string[] {
+export function dueDatesBetween(bill: BillSchedule, from: string, until: string): string[] {
   const to = bill.endDate !== null && bill.endDate < until ? bill.endDate : until;
   switch (bill.cadence) {
     case "weekly":
@@ -251,22 +294,4 @@ function everyNMonths(year: number, month0: number, day: number, step: number, f
 function clampedDate(year: number, month0: number, day: number): string {
   const lastDay = new Date(Date.UTC(year, month0 + 1, 0)).getUTCDate();
   return fromUtc(new Date(Date.UTC(year, month0, Math.min(day, lastDay))));
-}
-
-function addDays(date: string, days: number): string {
-  const d = toUtc(date);
-  d.setUTCDate(d.getUTCDate() + days);
-  return fromUtc(d);
-}
-
-function daysBetween(from: string, to: string): number {
-  return Math.round((toUtc(to).getTime() - toUtc(from).getTime()) / 86_400_000);
-}
-
-function toUtc(date: string): Date {
-  return new Date(`${date}T00:00:00.000Z`);
-}
-
-function fromUtc(d: Date): string {
-  return d.toISOString().slice(0, 10);
 }

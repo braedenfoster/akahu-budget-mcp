@@ -354,3 +354,13 @@ export const bills = sqliteTable("bills", {
   updatedAt: text("updated_at").notNull(),
 });
 export type Bill = typeof bills.$inferSelect;
+
+/** Bill candidates are not stored, so a decline is keyed by the matcher rule plus one amount in its amount cluster. */
+export const declinedBillCandidates = sqliteTable("declined_bill_candidates", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  matchType: text("match_type").notNull(),
+  matchValue: text("match_value").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  declinedAt: text("declined_at").notNull(),
+});
+export type DeclinedBillCandidate = typeof declinedBillCandidates.$inferSelect;

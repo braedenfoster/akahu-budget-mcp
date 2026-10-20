@@ -133,7 +133,7 @@ The server keeps a list of Bills that a Member confirmed. The server proposes Bi
 
 ### MCP tools
 
-- `list_bills`: lists active Bills (and ended Bills when asked).
+- `list_bills`: lists active Bills (and ended Bills when asked). Each Bill has `missed_due_dates`: its missed due dates in a Period (default: the current Period), from the day the Bill was created.
 - `list_bill_candidates`: lists the current Bill candidates with the proposed name, cadence, anchor, amount mode, amount, matcher rule and the debits that support it.
 - `manage_bills` with actions:
   - `confirm`: create a Bill from a candidate, with optional changes to name, cadence, anchor and amount.
@@ -142,7 +142,7 @@ The server keeps a list of Bills that a Member confirmed. The server proposes Bi
   - `decline`: record a declined Bill candidate.
   - `end`: set a Bill to ended, with an end date.
 - `get_upcoming_bills`: returns the same Bills view as the API.
-- The `review_spending` Workflow guide gains steps. Call `get_upcoming_bills` and `list_bills` to find missed Bill occurrences in the Period, then ask whether to end each one. Call `list_bill_candidates` and confirm or decline each candidate with the Member.
+- The `review_spending` Workflow guide gains steps. Call `list_bills` to find missed Bill occurrences in the Period, then ask whether to end each one. Call `get_upcoming_bills` to point out overdue ones. Call `list_bill_candidates` and confirm or decline each candidate with the Member.
 
 ### App
 

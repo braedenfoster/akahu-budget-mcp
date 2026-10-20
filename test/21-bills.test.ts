@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getUpcomingBillsTool, listBillsTool, manageBillsTool } from "../src/tools/bills.js";
+import { getUpcomingBillsTool, listBillsTool, manageBillsTool, type ShapedBill } from "../src/tools/bills.js";
 import { invokeTool } from "../src/tools/types.js";
 import { putSetting, SETTING_LAST_SYNC_AT, type AppContext } from "../src/context.js";
 import { auditLog } from "../src/db/schema.js";
@@ -27,7 +27,7 @@ function middayInNz(date: string): string {
 }
 
 function createBill(ctx: AppContext, overrides: Record<string, unknown>) {
-  return invokeTool(ctx, manageBillsTool, { ...POWER, ...overrides });
+  return invokeTool(ctx, manageBillsTool, { ...POWER, ...overrides }) as ShapedBill;
 }
 
 const EDUCATION = { name: "Education", cadence: "weekly", day_of_month: undefined, weekday: "sunday", expected_amount_cents: 25000 };
@@ -40,9 +40,9 @@ describe("Bills (Seam 1)", () => {
   it("lists a hand-entered Bill", () => {
     const ctx = testContext(TUE_20_OCT);
 
-    const created = invokeTool(ctx, manageBillsTool, POWER);
+    const created = createBill(ctx, POWER);
 
-    expect(invokeTool(ctx, listBillsTool, {}).bills).toEqual([created]);
+    expect(invokeTool(ctx, listBillsTool, {}).bills).toEqual([{ ...created, missed_due_dates: [] }]);
     expect(created).toMatchObject({
       name: "Power",
       cadence: "monthly",
@@ -61,7 +61,7 @@ describe("Bills (Seam 1)", () => {
 
   it("shows an upcoming Bill occurrence in the Bills view", () => {
     const ctx = testContext(TUE_20_OCT);
-    const power = invokeTool(ctx, manageBillsTool, POWER);
+    const power = createBill(ctx, POWER);
 
     expect(invokeTool(ctx, getUpcomingBillsTool, {})).toEqual({
       occurrences: [
@@ -283,7 +283,7 @@ describe("Bills (Seam 1)", () => {
     });
 
     expect(edited).toEqual({ ...power, name: "Electricity", day_of_month: 25 });
-    expect(invokeTool(ctx, listBillsTool, {}).bills).toEqual([edited]);
+    expect(invokeTool(ctx, listBillsTool, {}).bills).toEqual([{ ...edited, missed_due_dates: [] }]);
     expect(dueDates(ctx)).toEqual(["2026-10-25"]);
   });
 

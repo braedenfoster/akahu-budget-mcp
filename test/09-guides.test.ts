@@ -79,3 +79,26 @@ describe("Workflow guides know the Spending allowance (Seam 1)", () => {
     }
   });
 });
+
+describe("review_spending knows Bills (Seam 1)", () => {
+  const guide = () => invokeTool(testContext(), getWorkflowGuideTool, { flow: "review_spending" });
+
+  it("flags missed Bill occurrences and asks whether to end each Bill", () => {
+    const step = guide().steps.find((s) => s.includes("missed_due_dates"));
+    expect(step).toBeDefined();
+    expect(step).toMatch(/list_bills/);
+    expect(step).toMatch(/ask the Member whether the Bill has ended/);
+    expect(guide().steps.some((s) => s.includes("manage_bills") && s.includes("action end"))).toBe(true);
+  });
+
+  it("points out overdue Bill occurrences from get_upcoming_bills", () => {
+    expect(guide().steps.some((s) => s.includes("get_upcoming_bills") && s.includes("overdue"))).toBe(true);
+  });
+
+  it("confirms or declines each Bill candidate with the Member", () => {
+    const step = guide().steps.find((s) => s.includes("list_bill_candidates"));
+    expect(step).toBeDefined();
+    expect(guide().steps.some((s) => s.includes("action confirm") && s.includes("action decline"))).toBe(true);
+    expect(guide().tools).toEqual(expect.arrayContaining(["get_upcoming_bills", "list_bills", "list_bill_candidates", "manage_bills"]));
+  });
+});

@@ -1,6 +1,6 @@
 ---
 name: review-spending
-description: Review this period's spending, clear uncategorized transactions, tidy how income classifies into Income Streams, and spot overspent envelopes.
+description: Review this period's spending, clear uncategorized transactions, tidy how income classifies into Income Streams, spot overspent envelopes, and keep the Bills list current.
 ---
 
 # Review spending
@@ -11,5 +11,6 @@ Thin wrapper over the shared server-side guide — **no budgeting logic here**.
 2. Follow the returned steps in order, calling the tools it names.
 3. Only write when the user agrees — on the expense side (categorize a
    transaction, create a mapping rule) and the income side (classify a credit
-   into an Income Stream, create an income rule, or manage Streams). Let the
-   server compute all totals.
+   into an Income Stream, create an income rule, or manage Streams), and for
+   Bills (end a Bill, or confirm or decline a Bill candidate). Let the server
+   compute all totals.
