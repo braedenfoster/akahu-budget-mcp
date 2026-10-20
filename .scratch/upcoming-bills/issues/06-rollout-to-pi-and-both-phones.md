@@ -29,5 +29,5 @@ Spec: `.scratch/upcoming-bills/spec.md` (section "Further Notes", rollout order)
   - Braeden added the "Bills today" widget on the Pixel. It showed the same three paid rows with ticks, and no "+N more".
   - Open questions from the Pixel check:
     - The card shows "Mon" twice, for the School fees of 19 Oct (paid) and 26 Oct. Decide whether a row needs the day of the month.
-    - The widget has no "Bills today" title. Decide whether to add one.
+    - The widget had no "Bills today" title. Braeden chose to add one, and to start the rows under it (`68d507a`, on the Pixel 20 Oct 2026).
   - Still open: the hand-entered quarterly and yearly Bills, the second phone (APK and widget), the due-day comparison, and the morning-after check.
