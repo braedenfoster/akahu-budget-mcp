@@ -319,3 +319,38 @@ export const plannedPurchases = sqliteTable("planned_purchases", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+// --- Bills (ADR-0014) -------------------------------------------------------
+
+export const BILL_CADENCES = ["weekly", "fortnightly", "monthly", "quarterly", "yearly"] as const;
+export type BillCadence = (typeof BILL_CADENCES)[number];
+
+export const BILL_AMOUNT_MODES = ["fixed", "estimated"] as const;
+export type BillAmountMode = (typeof BILL_AMOUNT_MODES)[number];
+
+export const BILL_STATUSES = ["active", "ended"] as const;
+export type BillStatus = (typeof BILL_STATUSES)[number];
+
+/**
+ * A Bill a Member confirmed (ADR-0014). Exactly one anchor column is set, by
+ * cadence: weekly uses `anchor_weekday` (0 = Sunday), monthly uses
+ * `anchor_day`, and fortnightly, quarterly and yearly use `anchor_date`.
+ * Matched debits are not stored on the Bill.
+ */
+export const bills = sqliteTable("bills", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  cadence: text("cadence", { enum: BILL_CADENCES }).notNull(),
+  anchorWeekday: integer("anchor_weekday"),
+  anchorDay: integer("anchor_day"),
+  anchorDate: text("anchor_date"), // YYYY-MM-DD
+  amountMode: text("amount_mode", { enum: BILL_AMOUNT_MODES }).notNull().default("fixed"),
+  expectedAmountCents: integer("expected_amount_cents").notNull(),
+  matchType: text("match_type").notNull(),
+  matchValue: text("match_value").notNull(),
+  status: text("status", { enum: BILL_STATUSES }).notNull().default("active"),
+  endDate: text("end_date"), // YYYY-MM-DD; set when ended
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+export type Bill = typeof bills.$inferSelect;

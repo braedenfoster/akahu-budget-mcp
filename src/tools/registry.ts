@@ -38,6 +38,7 @@ import {
   setIncomeRuleTool,
 } from "./income.js";
 import { getPeriodSummaryTool } from "./reports.js";
+import { getUpcomingBillsTool, listBillsTool, manageBillsTool } from "./bills.js";
 import { getWorkflowGuideTool } from "./guides.js";
 
 /**
@@ -75,6 +76,9 @@ export const allTools: AnyTool[] = [
   listUnclassifiedIncomeTool,
   incomeCoverageTool,
   getPeriodSummaryTool,
+  listBillsTool,
+  manageBillsTool,
+  getUpcomingBillsTool,
   getWorkflowGuideTool,
 ];
 

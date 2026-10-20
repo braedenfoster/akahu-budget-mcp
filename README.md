@@ -233,6 +233,7 @@ Reads carry a `data_as_of` stamp; writes are audited and refused in read-only mo
 - **Income:** `list_income_streams`, `manage_income_streams`, `set_income_rule`, `classify_income`, `list_unclassified_income`, `income_coverage`
 - **Budget:** `get_budget`, `create_budget_for_period`, `set_allocation`, `set_expected_income`, `reallocate`
 - **Purchases & planning:** `evaluate_purchase`, `plan_period`, `add_planned_purchase`, `list_planned_purchases`, `update_planned_purchase`, `mark_purchased`, `drop_planned_purchase`
+- **Bills:** `list_bills`, `manage_bills`, `get_upcoming_bills`
 - **Reports & guidance:** `get_period_summary`, `get_workflow_guide`
 - **Settings:** `get_settings`, `set_setting`
 

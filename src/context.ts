@@ -113,3 +113,15 @@ export function householdToday(ctx: AppContext): string {
 export function getDataAsOf(ctx: AppContext): string | null {
   return getSetting(ctx, SETTING_LAST_SYNC_AT) ?? null;
 }
+
+// Sync runs nightly, so 36 hours means at least one sync was missed.
+const STALE_AFTER_MS = 36 * 60 * 60 * 1000;
+
+/** Data-as-of and whether it is stale. Every phone surface quotes these two values. */
+export function dataFreshness(ctx: AppContext): { data_as_of: string | null; stale: boolean } {
+  const dataAsOf = getDataAsOf(ctx);
+  if (dataAsOf === null) return { data_as_of: null, stale: true };
+  const age = ctx.now().getTime() - new Date(dataAsOf).getTime();
+  // An unreadable stamp gives NaN, which must read as stale.
+  return { data_as_of: dataAsOf, stale: !(age <= STALE_AFTER_MS) };
+}

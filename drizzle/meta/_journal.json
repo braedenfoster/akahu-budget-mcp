@@ -71,6 +71,13 @@
       "when": 1792225521250,
       "tag": "0009_local_transaction_dates",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1792462632155,
+      "tag": "0010_bills",
+      "breakpoints": true
     }
   ]
 }

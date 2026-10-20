@@ -1,5 +1,5 @@
 import { and, eq, gte, lte } from "drizzle-orm";
-import { getDataAsOf, householdToday, type AppContext } from "../context.js";
+import { dataFreshness, householdToday, type AppContext } from "../context.js";
 import { budgetCategories, transactions, type CategoryKind } from "../db/schema.js";
 import { daysLeftInPeriod, periodLengthDays, type Period } from "../period.js";
 import { formatDollars } from "../money.js";
@@ -44,15 +44,12 @@ export function computeSpendingAllowance(ctx: AppContext, period: Period): Spend
   const periodDays = periodLengthDays(period);
   const daysLeft = Math.min(daysLeftInPeriod(period, householdToday(ctx)), periodDays);
 
-  const dataAsOf = getDataAsOf(ctx);
-
   const base = {
     period: period.key,
     days_left: daysLeft,
     period_days: periodDays,
     uncategorized_count: uncategorizedCount(ctx, period, uncategorizedId),
-    data_as_of: dataAsOf,
-    stale: isStale(dataAsOf, ctx.now()),
+    ...dataFreshness(ctx),
   };
   if (!budget) {
     return {
@@ -126,16 +123,6 @@ function sumAllocatedByKind(
     else totals.committed_cents += e.allocated_cents;
   }
   return totals;
-}
-
-// Sync runs nightly, so 36 hours means at least one sync was missed.
-const STALE_AFTER_MS = 36 * 60 * 60 * 1000;
-
-function isStale(dataAsOf: string | null, now: Date): boolean {
-  if (dataAsOf === null) return true;
-  const age = now.getTime() - new Date(dataAsOf).getTime();
-  // An unreadable stamp gives NaN, which must read as stale.
-  return !(age <= STALE_AFTER_MS);
 }
 
 function perWeek(amount: number, daysLeft: number): number | null {
