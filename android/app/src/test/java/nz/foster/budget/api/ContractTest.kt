@@ -38,14 +38,14 @@ class ContractTest {
 
         assertEquals(
             listOf(
-                BillOccurrence("Power", LocalDate.of(2026, 10, 12), BillOccurrenceState.Overdue, "$212.00"),
-                BillOccurrence("Spotify", LocalDate.of(2026, 10, 13), BillOccurrenceState.Paid, "$26.49"),
-                BillOccurrence("Internet", LocalDate.of(2026, 10, 14), BillOccurrenceState.Due, "$89.99"),
-                BillOccurrence("Water", LocalDate.of(2026, 10, 20), BillOccurrenceState.Upcoming, "~$80.00"),
+                BillOccurrence("Power", LocalDate.of(2026, 10, 12), BillOccurrenceState.Overdue, 21200L, estimated = false),
+                BillOccurrence("Spotify", LocalDate.of(2026, 10, 13), BillOccurrenceState.Paid, 2649L, estimated = false),
+                BillOccurrence("Internet", LocalDate.of(2026, 10, 14), BillOccurrenceState.Due, 8999L, estimated = false),
+                BillOccurrence("Water", LocalDate.of(2026, 10, 20), BillOccurrenceState.Upcoming, 8000L, estimated = true),
             ),
             bills.occurrences,
         )
-        assertEquals("$381.99", bills.dueTotalDisplay)
+        assertEquals(38199L, bills.dueTotalCents)
         assertFalse(bills.stale)
     }
 
@@ -70,8 +70,8 @@ class ContractTest {
         val bills = root.getValue("bills").jsonObject
         val row = bills.getValue("occurrences").jsonArray.first().jsonObject
         val withRow = { r: JsonObject -> JsonObject(bills + ("occurrences" to JsonArray(listOf(r)))) }
-        val unreadable = listOf("occurrences", "due_total_display", "stale").associateWith { JsonObject(bills - it) } +
-            listOf("name", "due_date", "state", "amount_display").associateWith { withRow(JsonObject(row - it)) } +
+        val unreadable = listOf("occurrences", "due_total_cents", "stale").associateWith { JsonObject(bills - it) } +
+            listOf("name", "due_date", "state", "amount_cents", "estimated").associateWith { withRow(JsonObject(row - it)) } +
             mapOf(
                 "unknown state" to withRow(JsonObject(row + ("state" to JsonPrimitive("skipped")))),
                 "malformed due_date" to withRow(JsonObject(row + ("due_date" to JsonPrimitive("12 Oct")))),

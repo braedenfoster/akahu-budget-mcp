@@ -64,7 +64,7 @@ data class SpendingAllowance(
 data class BillsView(
     val occurrences: List<BillOccurrence>,
     /** The occurrences that are not paid, summed by the server. */
-    @SerialName("due_total_display") val dueTotalDisplay: String,
+    @SerialName("due_total_cents") val dueTotalCents: Long,
     val stale: Boolean,
 )
 
@@ -82,8 +82,10 @@ data class BillOccurrence(
     /** A Household calendar date. */
     @Serializable(with = LocalDateSerializer::class) @SerialName("due_date") val dueDate: LocalDate,
     val state: BillOccurrenceState,
-    /** The actual debit when paid; "~" marks an estimate. */
-    @SerialName("amount_display") val amountDisplay: String,
+    /** The actual debit when paid. */
+    @SerialName("amount_cents") val amountCents: Long,
+    /** The server's estimate for a Bill with a varying amount. */
+    val estimated: Boolean,
 )
 
 private abstract class IsoStringSerializer<T : Any>(name: String, private val parse: (String) -> T) : KSerializer<T> {

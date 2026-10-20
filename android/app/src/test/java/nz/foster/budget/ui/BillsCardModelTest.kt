@@ -55,7 +55,7 @@ class BillsCardModelTest {
     fun `an empty week has no rows`() {
         assertEquals(
             BillsCardModel("$0.00", AmountTone.Normal, emptyList()),
-            billsCardModel(BillsView(occurrences = emptyList(), dueTotalDisplay = "$0.00", stale = false)),
+            billsCardModel(BillsView(occurrences = emptyList(), dueTotalCents = 0, stale = false)),
         )
     }
 

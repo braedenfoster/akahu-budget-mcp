@@ -2,12 +2,13 @@ package nz.foster.budget.ui
 
 import nz.foster.budget.allowance.AmountTone
 import nz.foster.budget.allowance.amountTone
+import nz.foster.budget.allowance.formatNzd
 import nz.foster.budget.allowance.formatWeekday
 import nz.foster.budget.api.BillOccurrence
 import nz.foster.budget.api.BillOccurrenceState
 import nz.foster.budget.api.BillsView
 
-/** The "Bills this week" card. Totals, amounts and row order come from the server as given (ADR-0003). */
+/** The "Bills this week" card. Totals, amounts and row order come from the server (ADR-0003). */
 data class BillsCardModel(
     val total: String,
     val totalTone: AmountTone,
@@ -24,7 +25,7 @@ data class OccurrenceRow(
 )
 
 fun billsCardModel(bills: BillsView) = BillsCardModel(
-    total = bills.dueTotalDisplay,
+    total = formatNzd(bills.dueTotalCents),
     totalTone = amountTone(warning = false, stale = bills.stale),
     rows = bills.occurrences.map { occurrenceRow(it, bills.stale) },
 )
@@ -32,7 +33,7 @@ fun billsCardModel(bills: BillsView) = BillsCardModel(
 private fun occurrenceRow(o: BillOccurrence, stale: Boolean) = OccurrenceRow(
     weekday = formatWeekday(o.dueDate),
     name = o.name,
-    amount = o.amountDisplay,
+    amount = (if (o.estimated) "~" else "") + formatNzd(o.amountCents),
     paid = o.state == BillOccurrenceState.Paid,
     tone = amountTone(warning = o.state == BillOccurrenceState.Overdue, stale = stale),
 )

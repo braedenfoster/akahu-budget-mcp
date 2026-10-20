@@ -13,13 +13,13 @@ Spec: `.scratch/upcoming-bills/spec.md` (sections "API contract", "App")
 - [x] The app parses and caches the `bills` block with the Spending allowance snapshot. A response without `bills` still parses
 - [x] The Android contract test parses every fixture
 - [x] A pure function maps the cached response to the card model (header total, rows, or "No bills this week"). The app does no money math, filtering or sorting
-- [x] The card shows weekday, name and `amount_display` per row, a tick for paid, a warning colour for overdue, and the stale treatment that the Spending allowance uses
+- [x] The card shows weekday, name and amount per row (formatted from `amount_cents`, with "~" when `estimated`), a tick for paid, a warning colour for overdue, and the stale treatment that the Spending allowance uses
 - [x] JVM tests cover the card model for every fixture and for a response without `bills`
 
 ## Comments
 
 - 2026-10-20: The agent implemented all seven items. The server suite (236 tests) and the Android JVM suite (115 tests) pass. Decisions for review:
-  - ADR-0013 says "the app formats cents for display", and it retires the `*_display` strings. This spec tells the card to show `amount_display` and `due_total_display` as given. The card follows the spec, because the server owns the "~" estimate marker. Amend ADR-0013, or change the card to format `amount_cents` itself.
+  - The card formats `amount_cents` and `due_total_cents`, as ADR-0013 says, and puts "~" in front when `estimated` is true. It does not show the server's `*_display` strings. The spec first said to show them as given. The spec now follows ADR-0013.
   - If the response has no `bills` block, the app hides the card. The spec gives the "Open the app to load bills" text only for the widget.
   - If the app cannot read the `bills` block (for example, a new `state` value from a later server), the app keeps the Spending allowance and hides the card. Only the Spending allowance block can fail a parse.
   - The stale treatment copies the Spending allowance rule. Stale greys the header total and the rows. An overdue row keeps the warning colour.

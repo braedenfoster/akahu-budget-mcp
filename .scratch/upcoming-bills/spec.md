@@ -146,8 +146,8 @@ The server keeps a list of Bills that a Member confirmed. The server proposes Bi
 
 ### App
 
-- The app does no money math (ADR-0003). It shows `amount_display` and `due_total_display` as given. It does not filter or sort occurrences. The only change the app makes is cutting the widget list to 3 rows plus "+N more".
-- The in-app screen shows a "Bills this week" card below the breakdown card. The header shows `due_total_display`. Each row shows the weekday, the name and the amount, with a tick for paid and a warning colour for overdue. If `occurrences` is empty, the card shows "No bills this week".
+- The app does no money math (ADR-0003). It formats `amount_cents` and `due_total_cents` for display (ADR-0013), with "~" in front when `estimated` is true. It does not filter or sort occurrences. The only change the app makes is cutting the widget list to 3 rows plus "+N more".
+- The in-app screen shows a "Bills this week" card below the breakdown card. The header shows `due_total_cents`. Each row shows the weekday, the name and the amount, with a tick for paid and a warning colour for overdue. If `occurrences` is empty, the card shows "No bills this week".
 - A new Glance widget, "Bills today", has its own receiver and widget info. It reads the same cached snapshot as the Spending widget. A change to the snapshot updates both widgets. A tap opens the app.
 - "Bills today" states:
 
