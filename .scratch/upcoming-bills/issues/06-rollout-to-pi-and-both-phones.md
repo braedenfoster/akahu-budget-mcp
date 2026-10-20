@@ -11,7 +11,7 @@ Spec: `.scratch/upcoming-bills/spec.md` (section "Further Notes", rollout order)
 - [x] Deploy the server to the Pi. Check that the migration ran
 - [x] In Claude, run `review_spending`. Confirm or decline each Bill candidate against the Pi data
 - [ ] Add quarterly and yearly Bills by hand (for example, rates) with `manage_bills` `create`
-- [ ] Install the APK on Braeden's Pixel and the second phone. Add the "Bills today" widget on both
+- [x] Install the APK on Braeden's Pixel and the second phone. Add the "Bills today" widget on both
 - [ ] On a day when a Bill is due, compare both phones with `get_upcoming_bills`
 - [ ] On the morning after, check that the Bill shows paid with a tick on the card and the widget
 
@@ -30,4 +30,5 @@ Spec: `.scratch/upcoming-bills/spec.md` (section "Further Notes", rollout order)
   - Open questions from the Pixel check:
     - The card shows "Mon" twice, for the School fees of 19 Oct (paid) and 26 Oct. Decide whether a row needs the day of the month.
     - The widget had no "Bills today" title. Braeden chose to add one, and to start the rows under it (`68d507a`, on the Pixel 20 Oct 2026).
-  - Still open: the hand-entered quarterly and yearly Bills, the second phone (APK and widget), the due-day comparison, and the morning-after check.
+  - The agent installed the `b20f93c` release APK on the second phone (Aviva's Pixel 8 Pro, Android 17). It was the first install of the app on that phone. Aviva signed in and added the "Bills today" widget. Braeden confirmed that it works.
+  - Still open: the hand-entered quarterly and yearly Bills, the due-day comparison (21 Oct 2026: Mighty Mobile and Watercare), and the morning-after check (22 Oct 2026).
