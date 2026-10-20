@@ -4,7 +4,9 @@ import { invokeTool } from "../src/tools/types.js";
 import { putSetting, SETTING_LAST_SYNC_AT, type AppContext } from "../src/context.js";
 import { auditLog } from "../src/db/schema.js";
 import { ReadOnlyError } from "../src/write.js";
-import { testContext } from "./helpers.js";
+import { runSync } from "../src/sync/index.js";
+import { FakeAkahuClient, sampleAccount, sampleTransaction } from "./fixtures/akahu.js";
+import { seedConnection, testContext } from "./helpers.js";
 
 // 09:00 on Tue 20 Oct 2026 in Auckland (NZDT, UTC+13).
 const TUE_20_OCT = "2026-10-19T20:00:00.000Z";
@@ -353,3 +355,228 @@ describe("Bills (Seam 1)", () => {
     });
   });
 });
+
+async function synced(now: string, txns: ReturnType<typeof sampleTransaction>[]): Promise<AppContext> {
+  const ctx = testContext(now);
+  const connectionId = seedConnection(ctx);
+  await runSync(ctx, [{ connectionId, client: new FakeAkahuClient([sampleAccount()], txns) }]);
+  return ctx;
+}
+
+function contactEnergy(id: string, date: string, amount: number) {
+  return sampleTransaction({ id, date, amount, merchant: "Contact Energy" });
+}
+
+function occurrenceRows(ctx: AppContext) {
+  return invokeTool(ctx, getUpcomingBillsTool, {}).occurrences.map((o) => [o.name, o.due_date, o.state, o.amount_display]);
+}
+
+const IAG = { name: "IAG", day_of_month: 26, amount_mode: "estimated", expected_amount_cents: 18000, match_value: "IAG" };
+
+function iag(id: string, date: string, amount: number) {
+  return sampleTransaction({ id, date, amount, merchant: "IAG" });
+}
+
+describe("Paid Bill occurrences and estimated amounts (Seam 1)", () => {
+  it("marks an occurrence paid with the actual debit amount and leaves it out of the total", async () => {
+    const ctx = await synced(middayInNz("2026-10-23"), [contactEnergy("p1", "2026-10-22", -215.4)]);
+    const power = createBill(ctx, POWER);
+
+    const view = invokeTool(ctx, getUpcomingBillsTool, {});
+
+    expect(view.occurrences).toEqual([
+      {
+        bill_id: power.id,
+        name: "Power",
+        due_date: "2026-10-22",
+        state: "paid",
+        amount_cents: 21540,
+        amount_display: "$215.40",
+        estimated: false,
+      },
+    ]);
+    expect(view.today.map((o) => o.state)).toEqual(["paid"]);
+    expect(view).toMatchObject({ due_total_cents: 0, due_total_display: "$0.00" });
+  });
+
+  it("matches a debit that lands up to 3 days before the due date", async () => {
+    const early = await synced(TUE_20_OCT, [contactEnergy("p1", "2026-10-19", -212)]);
+    createBill(early, POWER);
+    const tooEarly = await synced(TUE_20_OCT, [contactEnergy("p1", "2026-10-18", -212)]);
+    createBill(tooEarly, POWER);
+
+    expect(occurrenceRows(early)).toEqual([["Power", "2026-10-22", "paid", "$212.00"]]);
+    expect(occurrenceRows(tooEarly)).toEqual([["Power", "2026-10-22", "upcoming", "$212.00"]]);
+  });
+
+  it("matches a debit that lands up to 5 days after the due date", async () => {
+    const water = { name: "Water", day_of_month: 15, match_value: "Watercare" };
+    const unpaid = await synced(TUE_20_OCT, []);
+    createBill(unpaid, water);
+    const late = await synced(TUE_20_OCT, [
+      sampleTransaction({ id: "w1", date: "2026-10-20", amount: -85.5, merchant: "Watercare" }),
+    ]);
+    createBill(late, water);
+
+    expect(occurrenceRows(unpaid)).toEqual([["Water", "2026-10-15", "overdue", "$212.00"]]);
+    expect(occurrenceRows(late)).toEqual([]);
+  });
+
+  it("never matches a credit or a TRANSFER debit", async () => {
+    const ctx = await synced(TUE_20_OCT, [
+      contactEnergy("refund", "2026-10-20", 212),
+      sampleTransaction({ id: "t1", date: "2026-10-20", amount: -212, merchant: "Contact Energy", type: "TRANSFER" }),
+    ]);
+    createBill(ctx, POWER);
+
+    expect(occurrenceRows(ctx)).toEqual([["Power", "2026-10-22", "upcoming", "$212.00"]]);
+  });
+
+  it("matches a LOAN debit by its AP# description", async () => {
+    const ctx = await synced(TUE_20_OCT, [
+      sampleTransaction({ id: "m1", date: "2026-10-20", amount: -1850, description: "AP#12345678 to Kiwibank", type: "LOAN" }),
+    ]);
+    createBill(ctx, {
+      name: "Mortgage",
+      day_of_month: 20,
+      expected_amount_cents: 185000,
+      match_type: "description",
+      match_value: "AP#12345678",
+    });
+
+    expect(occurrenceRows(ctx)).toEqual([["Mortgage", "2026-10-20", "paid", "$1,850.00"]]);
+  });
+
+  it("keeps a paid occurrence in the week list until 2 days after its due date", async () => {
+    const ctx = await synced(TUE_20_OCT, [
+      sampleTransaction({ id: "w1", date: "2026-10-17", amount: -85.5, merchant: "Watercare" }),
+      sampleTransaction({ id: "w2", date: "2026-10-18", amount: -91.2, merchant: "Spark" }),
+    ]);
+    createBill(ctx, { name: "Water", day_of_month: 17, match_value: "Watercare" });
+    createBill(ctx, { name: "Internet", day_of_month: 18, match_value: "Spark" });
+
+    const view = invokeTool(ctx, getUpcomingBillsTool, {});
+
+    expect(view.occurrences.map((o) => [o.name, o.state])).toEqual([["Internet", "paid"]]);
+    expect(view.today.map((o) => o.name)).toEqual(["Internet"]);
+  });
+
+  it("gives a debit in two overlapping weekly windows to the occurrence with the nearest due date", async () => {
+    const ctx = await synced(middayInNz("2026-10-15"), [
+      sampleTransaction({ id: "e1", date: "2026-10-15", amount: -250, merchant: "School" }),
+    ]);
+    createBill(ctx, { ...EDUCATION, match_value: "School" });
+
+    expect(occurrenceRows(ctx)).toEqual([
+      ["Education", "2026-10-11", "overdue", "$250.00"],
+      ["Education", "2026-10-18", "paid", "$250.00"],
+    ]);
+  });
+
+  it("gives each AIA debit to the Bill with the closest expected amount", async () => {
+    const ctx = await synced(middayInNz("2026-10-27"), [
+      sampleTransaction({ id: "a1", date: "2026-10-26", amount: -97.15, merchant: "AIA" }),
+      sampleTransaction({ id: "a2", date: "2026-10-26", amount: -48.2, merchant: "AIA" }),
+    ]);
+    const aia = { day_of_month: 26, match_value: "AIA" };
+    createBill(ctx, { ...aia, name: "AIA life", expected_amount_cents: 4820 });
+    createBill(ctx, { ...aia, name: "AIA health", expected_amount_cents: 9500 });
+
+    expect(occurrenceRows(ctx)).toEqual([
+      ["AIA health", "2026-10-26", "paid", "$97.15"],
+      ["AIA life", "2026-10-26", "paid", "$48.20"],
+    ]);
+  });
+
+  it("estimates a varying Bill as the median of its last 3 matched debits, with ~", async () => {
+    const ctx = await synced(TUE_20_OCT, [
+      iag("i6", "2026-06-26", -500),
+      iag("i7", "2026-07-27", -175.1),
+      iag("i8", "2026-08-26", -190.4),
+      iag("i9", "2026-09-25", -182),
+    ]);
+    createBill(ctx, IAG);
+
+    expect(invokeTool(ctx, getUpcomingBillsTool, {}).occurrences).toMatchObject([
+      { name: "IAG", due_date: "2026-10-26", state: "upcoming", amount_cents: 18200, amount_display: "~$182.00", estimated: true },
+    ]);
+  });
+
+  it("estimates the middle of two matched debits", async () => {
+    const ctx = await synced(TUE_20_OCT, [iag("i8", "2026-08-26", -170), iag("i9", "2026-09-26", -185)]);
+    createBill(ctx, IAG);
+
+    expect(occurrenceRows(ctx)).toEqual([["IAG", "2026-10-26", "upcoming", "~$177.50"]]);
+  });
+
+  it("estimates the expected amount, with ~, before any debit matches", async () => {
+    const ctx = await synced(TUE_20_OCT, []);
+    createBill(ctx, IAG);
+
+    expect(occurrenceRows(ctx)).toEqual([["IAG", "2026-10-26", "upcoming", "~$180.00"]]);
+  });
+
+  it("shows the actual debit, without ~, when an estimated occurrence is paid", async () => {
+    const ctx = await synced(middayInNz("2026-10-27"), [iag("i9", "2026-09-26", -170), iag("i10", "2026-10-26", -201.35)]);
+    createBill(ctx, IAG);
+
+    expect(invokeTool(ctx, getUpcomingBillsTool, {}).occurrences).toMatchObject([
+      { name: "IAG", state: "paid", amount_cents: 20135, amount_display: "$201.35", estimated: false },
+    ]);
+  });
+
+  it("pays an occurrence with one debit, the one closest to the expected amount", async () => {
+    const ctx = await synced(TUE_20_OCT, [contactEnergy("p1", "2026-10-19", -212), contactEnergy("p2", "2026-10-20", -50)]);
+    createBill(ctx, POWER);
+
+    expect(occurrenceRows(ctx)).toEqual([["Power", "2026-10-22", "paid", "$212.00"]]);
+  });
+
+  it("skips an occurrence paid early when it picks the next upcoming one", async () => {
+    const ctx = await synced(TUE_20_OCT, [contactEnergy("p1", "2026-10-19", -212)]);
+    createBill(ctx, POWER);
+    createBill(ctx, { name: "Water", day_of_month: 30, match_value: "Watercare" });
+
+    expect(invokeTool(ctx, getUpcomingBillsTool, {}).next_upcoming).toMatchObject({
+      name: "Water",
+      due_date: "2026-10-30",
+      state: "upcoming",
+    });
+  });
+
+  it("switches a Bill to estimated mode with an edit", async () => {
+    const ctx = await synced(TUE_20_OCT, [contactEnergy("p1", "2026-09-22", -230.15)]);
+    const power = createBill(ctx, POWER);
+
+    const edited = invokeTool(ctx, manageBillsTool, { action: "edit", id: power.id, amount_mode: "estimated" });
+
+    expect(edited).toMatchObject({ amount_mode: "estimated" });
+    expect(occurrenceRows(ctx)).toEqual([["Power", "2026-10-22", "upcoming", "~$230.15"]]);
+  });
+
+  it("looks a year past a yearly occurrence paid early for the next upcoming one", async () => {
+    const ctx = await synced(middayInNz("2027-02-27"), [
+      sampleTransaction({ id: "r1", date: "2027-02-26", amount: -320, merchant: "NZTA" }),
+    ]);
+    createBill(ctx, {
+      name: "Car registration",
+      cadence: "yearly",
+      day_of_month: undefined,
+      anchor_date: "2026-03-01",
+      match_value: "NZTA",
+    });
+
+    expect(invokeTool(ctx, getUpcomingBillsTool, {}).next_upcoming).toMatchObject({
+      name: "Car registration",
+      due_date: "2028-03-01",
+    });
+  });
+
+  it("does not match a debit 6 days after the due date", async () => {
+    const ctx = await synced(TUE_20_OCT, [iag("i9", "2026-10-02", -230)]);
+    createBill(ctx, IAG);
+
+    expect(occurrenceRows(ctx)).toEqual([["IAG", "2026-10-26", "upcoming", "~$180.00"]]);
+  });
+});
+

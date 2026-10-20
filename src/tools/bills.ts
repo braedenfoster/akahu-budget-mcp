@@ -1,8 +1,18 @@
 import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDataAsOf, householdToday, type AppContext } from "../context.js";
-import { computeBillsView, DUE_DAYS, OVERDUE_DAYS, WEEK_AHEAD_DAYS, WEEK_BEHIND_DAYS } from "../bills/view.js";
-import { BILL_CADENCES, bills, type Bill, type BillCadence } from "../db/schema.js";
+import {
+  computeBillsView,
+  DUE_DAYS,
+  ESTIMATE_FROM_DEBITS,
+  MATCH_DAYS_AFTER,
+  MATCH_DAYS_BEFORE,
+  OVERDUE_DAYS,
+  PAID_SHOWN_DAYS,
+  WEEK_AHEAD_DAYS,
+  WEEK_BEHIND_DAYS,
+} from "../bills/view.js";
+import { BILL_AMOUNT_MODES, BILL_CADENCES, bills, type Bill, type BillCadence } from "../db/schema.js";
 import { MATCH_TYPES } from "../matching/matcher.js";
 import { formatDollars } from "../money.js";
 import { withWrite } from "../write.js";
@@ -77,7 +87,8 @@ export const manageBillsTool = defineTool({
   name: "manage_bills",
   description:
     "Create, edit or end a Bill: a repeating, expected Household debit. " +
-    "create: {name, cadence, anchor, expected_amount_cents, match_type, match_value}. " +
+    "create: {name, cadence, anchor, expected_amount_cents, match_type, match_value, amount_mode?}. " +
+    `amount_mode is fixed (default; always the expected amount) or estimated (for a varying amount: the median of the last ${ESTIMATE_FROM_DEBITS} matched debits, or the expected amount before any match). ` +
     "The anchor depends on the cadence: weekly takes `weekday`; monthly takes `day_of_month` (1-31, moved to the last day of a shorter month); " +
     "fortnightly, quarterly and yearly take `anchor_date` (YYYY-MM-DD, any one due date). " +
     "match_type is one of merchant (exact), description (substring), akahu_group (exact), txn_type (exact Akahu type, e.g. LOAN). " +
@@ -92,6 +103,7 @@ export const manageBillsTool = defineTool({
     weekday: z.enum(WEEKDAYS).optional(),
     day_of_month: z.number().int().min(1).max(31).optional(),
     anchor_date: calendarDateSchema.optional(),
+    amount_mode: z.enum(BILL_AMOUNT_MODES).optional(),
     expected_amount_cents: z.number().int().min(1).optional(),
     match_type: z.enum(MATCH_TYPES).optional(),
     match_value: z.string().min(1).optional(),
@@ -111,6 +123,7 @@ export const manageBillsTool = defineTool({
             name,
             cadence,
             ...anchor,
+            amountMode: input.amount_mode,
             expectedAmountCents: expected_amount_cents,
             matchType: match_type,
             matchValue: match_value,
@@ -140,6 +153,7 @@ export const manageBillsTool = defineTool({
                 name: input.name,
                 cadence,
                 ...anchor,
+                amountMode: input.amount_mode,
                 expectedAmountCents: input.expected_amount_cents,
                 matchType: input.match_type,
                 matchValue: input.match_value,
@@ -190,9 +204,11 @@ export const getUpcomingBillsTool = defineTool({
   name: "get_upcoming_bills",
   description:
     `The Bills view, the same one the phone shows. \`occurrences\` lists each Bill occurrence due from ${WEEK_BEHIND_DAYS} days ago to ${WEEK_AHEAD_DAYS} days ahead, overdue first, then by due date, ` +
-    `with its state: upcoming (due date ahead), due (due today or up to ${DUE_DAYS} days ago), overdue (up to ${OVERDUE_DAYS} days ago). ` +
-    "`today` holds the occurrences due on or before today. `next_upcoming` is the first occurrence after today, even past the week. " +
-    "`due_total_cents` sums the occurrences in the list. Dates are Household calendar dates. Read-only with data-as-of and stale.",
+    `with its state: paid (a debit landed from ${MATCH_DAYS_BEFORE} days before to ${MATCH_DAYS_AFTER} days after the due date; listed until ${PAID_SHOWN_DAYS} days after it), ` +
+    `upcoming (due date ahead), due (due today or up to ${DUE_DAYS} days ago), overdue (up to ${OVERDUE_DAYS} days ago). ` +
+    "A paid occurrence shows the actual debit amount. An estimated amount starts with ~ and has `estimated: true`. " +
+    "`today` holds the occurrences due on or before today. `next_upcoming` is the first upcoming occurrence after today, even past the week. " +
+    "`due_total_cents` sums the occurrences in the list that are not paid. Dates are Household calendar dates. Read-only with data-as-of and stale.",
   inputSchema: {},
   handler: (ctx) => computeBillsView(ctx, householdToday(ctx)),
 });

@@ -1,8 +1,11 @@
+import { and, lt } from "drizzle-orm";
+import { isSpendSql } from "../budget/engine.js";
 import { dataFreshness, type AppContext } from "../context.js";
-import { bills, type Bill } from "../db/schema.js";
+import { bills, transactions, type Bill } from "../db/schema.js";
+import { buildMatcher } from "../matching/matcher.js";
 import { formatDollars } from "../money.js";
 
-export type BillOccurrenceState = "upcoming" | "due" | "overdue" | "missed";
+export type BillOccurrenceState = "paid" | "upcoming" | "due" | "overdue" | "missed";
 
 export interface BillOccurrence {
   bill_id: number;
@@ -28,9 +31,29 @@ export interface BillsView {
 export const DUE_DAYS = 2;
 /** After the due days, an occurrence is "overdue" up to this many days after its due date, then "missed". */
 export const OVERDUE_DAYS = 5;
+/** A paid occurrence stays in the week list for this many days after its due date. */
+export const PAID_SHOWN_DAYS = 2;
 /** The week list covers this many days before today and this many after it. */
 export const WEEK_BEHIND_DAYS = 5;
 export const WEEK_AHEAD_DAYS = 6;
+/** A debit matches an occurrence when it lands from this many days before the due date to this many after it. */
+export const MATCH_DAYS_BEFORE = 3;
+export const MATCH_DAYS_AFTER = 5;
+/** An estimated Bill takes the median of this many of its latest matched debits. */
+export const ESTIMATE_FROM_DEBITS = 3;
+
+/** A spend debit, with the money that left as a positive amount. */
+interface Debit {
+  id: string;
+  date: string;
+  amountCents: number;
+}
+
+interface Matches {
+  paid: Map<string, Debit>;
+  /** Each Bill's matched debits, newest first. */
+  byBill: Map<number, Debit[]>;
+}
 
 /**
  * The Bills view for a Household calendar date (ADR-0014). Every surface must
@@ -38,33 +61,43 @@ export const WEEK_AHEAD_DAYS = 6;
  */
 export function computeBillsView(ctx: AppContext, today: string): BillsView {
   const all = ctx.db.select().from(bills).all();
+  const matches = matchDebits(ctx, all);
   const weekStart = addDays(today, -WEEK_BEHIND_DAYS);
   const weekEnd = addDays(today, WEEK_AHEAD_DAYS);
   const occurrences = all
-    .flatMap((bill) => dueDatesBetween(bill, weekStart, weekEnd).map((date) => occurrence(bill, date, today)))
-    .filter((o) => o.state !== "missed")
+    .flatMap((bill) => dueDatesBetween(bill, weekStart, weekEnd).map((date) => occurrence(bill, date, today, matches)))
+    .filter((o) => inWeekList(o, today))
     .sort(weekOrder);
-  const dueTotal = occurrences.reduce((sum, o) => sum + o.amount_cents, 0);
+  const dueTotal = occurrences.filter((o) => o.state !== "paid").reduce((sum, o) => sum + o.amount_cents, 0);
   return {
     occurrences,
     today: occurrences.filter((o) => o.due_date <= today),
-    next_upcoming: nextUpcoming(all, today),
+    next_upcoming: nextUpcoming(all, today, matches),
     due_total_cents: dueTotal,
     due_total_display: formatDollars(dueTotal),
     ...dataFreshness(ctx),
   };
 }
 
-/** The first occurrence after today. The longest cadence is a year, so a year ahead always finds it. */
-function nextUpcoming(all: Bill[], today: string): BillOccurrence | null {
+/**
+ * The first upcoming occurrence after today. The longest cadence is a year and
+ * an early payment can skip one occurrence, so two years ahead always finds it.
+ */
+function nextUpcoming(all: Bill[], today: string, matches: Matches): BillOccurrence | null {
   const tomorrow = addDays(today, 1);
-  const yearAhead = addDays(today, 366);
+  const twoYearsAhead = addDays(today, 2 * 366);
   const firsts = all.flatMap((bill) =>
-    dueDatesBetween(bill, tomorrow, yearAhead)
-      .slice(0, 1)
-      .map((date) => occurrence(bill, date, today)),
+    dueDatesBetween(bill, tomorrow, twoYearsAhead)
+      .map((date) => occurrence(bill, date, today, matches))
+      .filter((o) => o.state === "upcoming")
+      .slice(0, 1),
   );
   return firsts.sort(weekOrder)[0] ?? null;
+}
+
+function inWeekList(o: BillOccurrence, today: string): boolean {
+  if (o.state === "paid") return daysBetween(o.due_date, today) <= PAID_SHOWN_DAYS;
+  return o.state !== "missed";
 }
 
 function weekOrder(a: BillOccurrence, b: BillOccurrence): number {
@@ -80,16 +113,85 @@ function state(dueDate: string, today: string): BillOccurrenceState {
   return "missed";
 }
 
-function occurrence(bill: Bill, dueDate: string, today: string): BillOccurrence {
+function occurrence(bill: Bill, dueDate: string, today: string, matches: Matches): BillOccurrence {
+  const paid = matches.paid.get(occurrenceKey(bill.id, dueDate));
+  const estimated = !paid && bill.amountMode === "estimated";
+  const amount = paid?.amountCents ?? (estimated ? estimate(bill, matches) : bill.expectedAmountCents);
   return {
     bill_id: bill.id,
     name: bill.name,
     due_date: dueDate,
-    state: state(dueDate, today),
-    amount_cents: bill.expectedAmountCents,
-    amount_display: formatDollars(bill.expectedAmountCents),
-    estimated: false,
+    state: paid ? "paid" : state(dueDate, today),
+    amount_cents: amount,
+    amount_display: `${estimated ? "~" : ""}${formatDollars(amount)}`,
+    estimated,
   };
+}
+
+/** The median of the Bill's latest matched debits, or its expected amount before any match. */
+function estimate(bill: Bill, matches: Matches): number {
+  const latest = (matches.byBill.get(bill.id) ?? []).slice(0, ESTIMATE_FROM_DEBITS).map((d) => d.amountCents);
+  if (latest.length === 0) return bill.expectedAmountCents;
+  latest.sort((a, b) => a - b);
+  const mid = Math.floor(latest.length / 2);
+  return latest.length % 2 === 1 ? latest[mid]! : Math.round((latest[mid - 1]! + latest[mid]!) / 2);
+}
+
+function occurrenceKey(billId: number, dueDate: string): string {
+  return `${billId}:${dueDate}`;
+}
+
+/**
+ * Pairs spend debits with Bill occurrences. Nothing is stored: the pairs are
+ * re-derived on every build, so editing or ending a Bill needs no clean-up.
+ */
+function matchDebits(ctx: AppContext, all: Bill[]): Matches {
+  const rows = ctx.db
+    .select({
+      id: transactions.akahuId,
+      date: transactions.date,
+      amountCents: transactions.amountCents,
+      merchant: transactions.merchant,
+      description: transactions.description,
+      group: transactions.akahuCategoryGroup,
+      type: transactions.type,
+    })
+    .from(transactions)
+    .where(and(lt(transactions.amountCents, 0), isSpendSql))
+    .all();
+  const debits = rows.map((row) => ({ ...row, amountCents: -row.amountCents }));
+  const pairs: { billId: number; key: string; debit: Debit; amountOff: number; daysOff: number }[] = [];
+  for (const bill of all) {
+    const rule = { matchType: bill.matchType, matchValue: bill.matchValue, targetId: bill.id, priority: 0, id: bill.id };
+    const passes = buildMatcher([rule]);
+    for (const debit of debits) {
+      if (passes(debit) === undefined) continue;
+      const dueDates = dueDatesBetween(bill, addDays(debit.date, -MATCH_DAYS_AFTER), addDays(debit.date, MATCH_DAYS_BEFORE));
+      for (const dueDate of dueDates)
+        pairs.push({
+          billId: bill.id,
+          key: occurrenceKey(bill.id, dueDate),
+          debit,
+          amountOff: Math.abs(bill.expectedAmountCents - debit.amountCents),
+          daysOff: Math.abs(daysBetween(dueDate, debit.date)),
+        });
+    }
+  }
+  // Each debit pays at most one occurrence and each occurrence takes at most one
+  // debit. The closest expected amount wins first, so two Bills from one
+  // merchant on one day each take their own debit.
+  pairs.sort((a, b) => a.amountOff - b.amountOff || a.daysOff - b.daysOff);
+  const paid = new Map<string, Debit>();
+  const byBill = new Map<number, Debit[]>();
+  const used = new Set<string>();
+  for (const { billId, key, debit } of pairs) {
+    if (paid.has(key) || used.has(debit.id)) continue;
+    paid.set(key, debit);
+    used.add(debit.id);
+    byBill.set(billId, [...(byBill.get(billId) ?? []), debit]);
+  }
+  for (const debits of byBill.values()) debits.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  return { paid, byBill };
 }
 
 /** The Bill's due dates from `from` to `until`, both inclusive. An ended Bill has none after its end date. */
