@@ -15,12 +15,9 @@ import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.LocalSize
-import androidx.glance.action.actionStartActivity
-import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
-import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
@@ -29,7 +26,6 @@ import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
-import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
@@ -37,13 +33,10 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
 import nz.foster.budget.R
-import nz.foster.budget.allowance.AmountTone
 import nz.foster.budget.allowance.SpendingRing
 import nz.foster.budget.appGraph
 import nz.foster.budget.refresh.RefreshScheduler
-import nz.foster.budget.ui.MainActivity
 
 class BudgetWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Responsive(setOf(DpSize(110.dp, 40.dp), DpSize(RING_MIN_WIDGET_WIDTH, 40.dp)))
@@ -69,16 +62,7 @@ class BudgetWidgetReceiver : GlanceAppWidgetReceiver() {
 
 @Composable
 private fun WidgetContent(state: WidgetState) {
-    Column(
-        modifier = GlanceModifier
-            .fillMaxSize()
-            .appWidgetBackground()
-            .background(GlanceTheme.colors.widgetBackground)
-            .cornerRadius(16.dp)
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .clickable(actionStartActivity<MainActivity>()),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    WidgetFrame {
         when (state) {
             WidgetState.SignedOut -> Headline(LocalContext.current.getString(R.string.sign_in))
             is WidgetState.NoAllowanceYet -> {
@@ -135,26 +119,6 @@ private fun Ring(ring: SpendingRing) {
         modifier = GlanceModifier.size(RING_SIZE),
         colorFilter = ColorFilter.tint(color),
     )
-}
-
-@Composable
-private fun toneColor(tone: AmountTone, normal: ColorProvider): ColorProvider = when (tone) {
-    AmountTone.Over -> GlanceTheme.colors.error
-    AmountTone.Stale -> GlanceTheme.colors.outline
-    AmountTone.Normal -> normal
-}
-
-@Composable
-private fun Headline(text: String) {
-    Text(text, maxLines = 1, style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Medium, color = GlanceTheme.colors.onSurface))
-}
-
-@Composable
-private fun Details(parts: List<String> = emptyList(), showsOfflineMark: Boolean) {
-    val context = LocalContext.current
-    val all = parts + listOfNotNull(context.getString(R.string.widget_offline).takeIf { showsOfflineMark })
-    if (all.isEmpty()) return
-    Text(all.joinToString(" · "), maxLines = 1, style = TextStyle(fontSize = 13.sp, color = GlanceTheme.colors.onSurfaceVariant))
 }
 
 @Composable

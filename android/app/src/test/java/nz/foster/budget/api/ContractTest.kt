@@ -45,8 +45,22 @@ class ContractTest {
             ),
             bills.occurrences,
         )
+        assertEquals(bills.occurrences.take(3), bills.today)
+        assertEquals(bills.occurrences.last(), bills.nextUpcoming)
         assertEquals(38199L, bills.dueTotalCents)
+        assertEquals(Instant.parse("2026-10-15T08:00:00Z"), bills.dataAsOf)
         assertFalse(bills.stale)
+    }
+
+    @Test
+    fun `no_bills_today has an empty today and a next upcoming Bill`() {
+        val bills = contractBills("no_bills_today")
+
+        assertEquals(emptyList<BillOccurrence>(), bills.today)
+        assertEquals(
+            BillOccurrence("Water", LocalDate.of(2026, 10, 20), BillOccurrenceState.Upcoming, 8000L, estimated = true),
+            bills.nextUpcoming,
+        )
     }
 
     @Test
@@ -70,7 +84,7 @@ class ContractTest {
         val bills = root.getValue("bills").jsonObject
         val row = bills.getValue("occurrences").jsonArray.first().jsonObject
         val withRow = { r: JsonObject -> JsonObject(bills + ("occurrences" to JsonArray(listOf(r)))) }
-        val unreadable = listOf("occurrences", "due_total_cents", "stale").associateWith { JsonObject(bills - it) } +
+        val unreadable = listOf("occurrences", "today", "next_upcoming", "due_total_cents", "data_as_of", "stale").associateWith { JsonObject(bills - it) } +
             listOf("name", "due_date", "state", "amount_cents", "estimated").associateWith { withRow(JsonObject(row - it)) } +
             mapOf(
                 "unknown state" to withRow(JsonObject(row + ("state" to JsonPrimitive("skipped")))),

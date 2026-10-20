@@ -2,7 +2,6 @@ package nz.foster.budget
 
 import android.app.Application
 import android.content.Context
-import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -18,7 +17,7 @@ import nz.foster.budget.cache.AllowanceCache
 import nz.foster.budget.cache.PrefsAllowanceCache
 import nz.foster.budget.config.AppConfig
 import nz.foster.budget.refresh.RefreshScheduler
-import nz.foster.budget.widget.BudgetWidget
+import nz.foster.budget.widget.updateAllWidgets
 
 class BudgetApp : Application() {
     lateinit var graph: AppGraph
@@ -30,12 +29,12 @@ class BudgetApp : Application() {
         super.onCreate()
         graph = AppGraph(this)
         RefreshScheduler.schedule(this)
-        keepWidgetCurrent()
+        keepWidgetsCurrent()
     }
 
-    private fun keepWidgetCurrent() {
+    private fun keepWidgetsCurrent() {
         appScope.launch { graph.auth.state.drop(1).collect { graph.allowance.reload() } }
-        appScope.launch { graph.allowance.snapshot.drop(1).collect { BudgetWidget().updateAll(this@BudgetApp) } }
+        appScope.launch { graph.allowance.snapshot.drop(1).collect { updateAllWidgets(this@BudgetApp) } }
     }
 }
 

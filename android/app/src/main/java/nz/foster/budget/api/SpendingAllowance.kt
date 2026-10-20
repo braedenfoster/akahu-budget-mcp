@@ -63,8 +63,14 @@ data class SpendingAllowance(
 @Serializable
 data class BillsView(
     val occurrences: List<BillOccurrence>,
+    /** The week list's occurrences due on or before today: today's, recent due and overdue ones, and recently paid ones. */
+    val today: List<BillOccurrence>,
+    /** The first occurrence after today, even beyond the week. Null when no active Bill has one. */
+    @SerialName("next_upcoming") val nextUpcoming: BillOccurrence?,
     /** The occurrences that are not paid, summed by the server. */
     @SerialName("due_total_cents") val dueTotalCents: Long,
+    /** The same last Akahu sync as the Spending allowance. */
+    @Serializable(with = InstantSerializer::class) @SerialName("data_as_of") val dataAsOf: Instant?,
     val stale: Boolean,
 )
 

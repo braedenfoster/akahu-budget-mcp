@@ -34,6 +34,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 import nz.foster.budget.R
 import nz.foster.budget.allowance.AmountTone
+import nz.foster.budget.allowance.OccurrenceRow
 import nz.foster.budget.allowance.SpendingRing
 import nz.foster.budget.cache.FetchFailure
 

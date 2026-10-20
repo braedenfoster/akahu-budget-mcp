@@ -32,5 +32,11 @@
     <string name="widget_no_allowance_yet">Tap to load</string>
     <string name="widget_as_of">as of %1$s</string>
     <string name="widget_offline">offline</string>
+    <string name="bills_widget_label">Bills today</string>
+    <string name="bills_widget_description">The Bills due today, and recent ones still due or just paid.</string>
+    <string name="widget_no_bills_today">No bills today</string>
+    <string name="widget_next_bill">Next: %1$s · %2$s · %3$s</string>
+    <string name="widget_more_bills">+%1$d more</string>
+    <string name="widget_bills_unavailable">Open the app to load bills</string>
     <string name="config_missing">This build is missing %1$s. Rebuild with the values in android/README.md.</string>
 </resources>

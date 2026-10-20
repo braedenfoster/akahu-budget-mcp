@@ -2,6 +2,7 @@ package nz.foster.budget.ui
 
 import nz.foster.budget.allowance.AllowanceSnapshot
 import nz.foster.budget.allowance.AmountTone
+import nz.foster.budget.allowance.OccurrenceRow
 import nz.foster.budget.api.BillsView
 import nz.foster.budget.api.contractAllowance
 import nz.foster.budget.api.contractBills
@@ -55,7 +56,7 @@ class BillsCardModelTest {
     fun `an empty week has no rows`() {
         assertEquals(
             BillsCardModel("$0.00", AmountTone.Normal, emptyList()),
-            billsCardModel(BillsView(occurrences = emptyList(), dueTotalCents = 0, stale = false)),
+            billsCardModel(BillsView(occurrences = emptyList(), today = emptyList(), nextUpcoming = null, dueTotalCents = 0, dataAsOf = null, stale = false)),
         )
     }
 
