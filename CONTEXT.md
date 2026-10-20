@@ -118,6 +118,18 @@ _Avoid_: Reservation, earmark, wishlist item, goal
 The read-only analysis of whether one purchase fits, returning structured facts (target Envelope remaining, verdict, reallocatable Slack, Household headroom, days left). Advisory only — changes nothing.
 _Avoid_: Approve, authorize
 
+**Bill**:
+A repeating, expected Household debit that counts as spend, due on a known date at a known or estimated amount. Never an Internal transfer (a card repayment or a move to savings is not a Bill); a one-off dated expense is not a Bill.
+_Avoid_: Payment, direct debit, subscription (bare — a subscription is one kind of Bill), recurring
+
+**Bill occurrence**:
+One dated instance of a Bill (e.g. Power, due 22 Oct, ~$212). A Bill repeats; a Bill occurrence happens once. Its state is **upcoming** (due date ahead), **due** (due today or just past, debit not yet seen), **paid** (a debit matched it), **overdue** (several days past, no debit), or **missed** (past the overdue window; a hint the Bill has ended).
+_Avoid_: Bill due, instalment, payment
+
+**Bill candidate**:
+A repeating debit pattern the system has spotted in Transaction history but no Member has confirmed. Becomes a Bill only when a Member confirms it; never shown as an upcoming Bill.
+_Avoid_: Suggested bill, detected bill, draft bill
+
 **Plan period**:
 The read-only collective analysis of all Planned Purchases for a Period, greedily testing what fits by priority.
 _Avoid_: Forecast, schedule
