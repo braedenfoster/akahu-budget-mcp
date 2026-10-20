@@ -25,5 +25,9 @@ Spec: `.scratch/upcoming-bills/spec.md` (section "Further Notes", rollout order)
   - Braeden declined INTEREST - PURCHASES, INTERNATIONAL TXN FEE, IRD WITHHOLDING TAX and the Spotify creators podcast subscription.
   - School fees is due on Monday. The debits land on Monday, not on Sunday as the spec's Further Notes say.
   - Detection did not propose Netflix, 2degrees or a second AIA policy on the 26th. Six months of data show no steady pattern for them.
-  - The agent installed the `a2bbc33` release APK on Braeden's Pixel 8 Pro. Nobody has checked the card or added the "Bills today" widget yet.
-  - Still open: the hand-entered quarterly and yearly Bills, the second phone, the due-day comparison, and the morning-after check.
+  - The agent installed the `a2bbc33` release APK on Braeden's Pixel 8 Pro. On 20 Oct 2026 at 8:04 pm, the card matched `get_upcoming_bills`: a $299.78 total, ticks on 1Password ($10.23), Disney+ and School fees, and "~" on Watercare and Spotify.
+  - Braeden added the "Bills today" widget on the Pixel. It showed the same three paid rows with ticks, and no "+N more".
+  - Open questions from the Pixel check:
+    - The card shows "Mon" twice, for the School fees of 19 Oct (paid) and 26 Oct. Decide whether a row needs the day of the month.
+    - The widget has no "Bills today" title. Decide whether to add one.
+  - Still open: the hand-entered quarterly and yearly Bills, the second phone (APK and widget), the due-day comparison, and the morning-after check.
