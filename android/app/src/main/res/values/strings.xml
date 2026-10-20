@@ -13,6 +13,10 @@
     <string name="committed_overspend">Committed overspend</string>
     <string name="uncategorized_spend">Uncategorized spend</string>
     <string name="uncategorized_count">%1$d to review</string>
+    <string name="bills_this_week">Bills this week</string>
+    <string name="no_bills_this_week">No bills this week</string>
+    <string name="bill_paid">Paid</string>
+    <string name="bill_paid_tick">✓</string>
     <string name="data_as_of">Data as of %1$s</string>
     <string name="data_as_of_unknown">Data as of: no sync yet</string>
     <string name="stale_warning">The bank data is old. The nightly sync may have failed.</string>

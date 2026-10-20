@@ -20,6 +20,8 @@ data class AllowanceScreenModel(
     val lastChecked: String?,
     /** Set when the latest fetch failed; [allowance] then holds the last good response. */
     val lastFailure: FetchFailure?,
+    /** Null when nothing is cached or the server sent no Bills view, so the card is hidden. */
+    val bills: BillsCardModel?,
 )
 
 data class AllowanceModel(
@@ -46,6 +48,7 @@ fun allowanceScreenModel(snapshot: AllowanceSnapshot): AllowanceScreenModel = Al
     allowance = snapshot.allowance?.let(::allowanceModel),
     lastChecked = snapshot.lastSuccessAtMillis?.let { timestampFormat.format(Instant.ofEpochMilli(it)) },
     lastFailure = (snapshot.lastFetch as? LastFetch.Failed)?.failure,
+    bills = snapshot.bills?.let(::billsCardModel),
 )
 
 private fun allowanceModel(a: SpendingAllowance) = AllowanceModel(

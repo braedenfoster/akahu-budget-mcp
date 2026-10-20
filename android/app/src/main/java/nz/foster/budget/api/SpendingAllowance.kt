@@ -1,6 +1,7 @@
 package nz.foster.budget.api
 
 import java.time.Instant
+import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeParseException
 import kotlinx.serialization.KSerializer
@@ -12,12 +13,19 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.decodeFromJsonElement
 
-// Every field is required with no default, so a renamed or removed field fails the contract test.
-// Unknown keys are ignored: the server still sends display strings the app must not use.
-@Serializable
 data class SpendingAllowanceResponse(
+    val spendingAllowance: SpendingAllowance,
+    /** Null when the server is older than the Bills view or sends a block this APK cannot read. */
+    val bills: BillsView?,
+)
+
+@Serializable
+private data class RawResponse(
     @SerialName("spending_allowance") val spendingAllowance: SpendingAllowance,
+    val bills: JsonElement? = null,
 )
 
 @Serializable
@@ -27,6 +35,8 @@ enum class AllowanceStatus {
     @SerialName("no_budget") NoBudget,
 }
 
+// Every field is required with no default, so a renamed or removed field fails the contract test.
+// Unknown keys are ignored: the server still sends display strings the app must not use.
 @Serializable
 data class SpendingAllowance(
     @Serializable(with = YearMonthSerializer::class) val period: YearMonth,
@@ -49,6 +59,33 @@ data class SpendingAllowance(
     val stale: Boolean,
 )
 
+/** The server's week list of Bill occurrences, already filtered and sorted. */
+@Serializable
+data class BillsView(
+    val occurrences: List<BillOccurrence>,
+    /** The occurrences that are not paid, summed by the server. */
+    @SerialName("due_total_display") val dueTotalDisplay: String,
+    val stale: Boolean,
+)
+
+@Serializable
+enum class BillOccurrenceState {
+    @SerialName("upcoming") Upcoming,
+    @SerialName("due") Due,
+    @SerialName("paid") Paid,
+    @SerialName("overdue") Overdue,
+}
+
+@Serializable
+data class BillOccurrence(
+    val name: String,
+    /** A Household calendar date. */
+    @Serializable(with = LocalDateSerializer::class) @SerialName("due_date") val dueDate: LocalDate,
+    val state: BillOccurrenceState,
+    /** The actual debit when paid; "~" marks an estimate. */
+    @SerialName("amount_display") val amountDisplay: String,
+)
+
 private abstract class IsoStringSerializer<T : Any>(name: String, private val parse: (String) -> T) : KSerializer<T> {
     override val descriptor = PrimitiveSerialDescriptor(name, PrimitiveKind.STRING)
 
@@ -68,8 +105,24 @@ private object YearMonthSerializer : IsoStringSerializer<YearMonth>("nz.foster.b
 
 private object InstantSerializer : IsoStringSerializer<Instant>("nz.foster.budget.Instant", Instant::parse)
 
+private object LocalDateSerializer : IsoStringSerializer<LocalDate>("nz.foster.budget.LocalDate", LocalDate::parse)
+
 private val json = Json { ignoreUnknownKeys = true }
 
+/**
+ * Throws [kotlinx.serialization.SerializationException] when the Spending allowance does not match the contract.
+ * An unreadable Bills block gives null instead, so a later server change to Bills cannot hide the Spending allowance.
+ */
+fun parseAllowanceResponse(body: String): SpendingAllowanceResponse {
+    val raw = json.decodeFromString<RawResponse>(body)
+    return SpendingAllowanceResponse(raw.spendingAllowance, raw.bills?.let(::readBills))
+}
+
+private fun readBills(element: JsonElement): BillsView? = try {
+    json.decodeFromJsonElement<BillsView>(element)
+} catch (_: SerializationException) {
+    null
+}
+
 /** Throws [kotlinx.serialization.SerializationException] when the body does not match the contract. */
-fun parseSpendingAllowance(body: String): SpendingAllowance =
-    json.decodeFromString<SpendingAllowanceResponse>(body).spendingAllowance
+fun parseSpendingAllowance(body: String): SpendingAllowance = parseAllowanceResponse(body).spendingAllowance

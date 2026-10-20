@@ -1,4 +1,86 @@
 {
+  "bills": {
+    "data_as_of": "2026-10-15T08:00:00.000Z",
+    "due_total_cents": 38199,
+    "due_total_display": "$381.99",
+    "next_upcoming": {
+      "amount_cents": 8000,
+      "amount_display": "~$80.00",
+      "bill_id": 4,
+      "due_date": "2026-10-20",
+      "estimated": true,
+      "name": "Water",
+      "state": "upcoming"
+    },
+    "occurrences": [
+      {
+        "amount_cents": 21200,
+        "amount_display": "$212.00",
+        "bill_id": 1,
+        "due_date": "2026-10-12",
+        "estimated": false,
+        "name": "Power",
+        "state": "overdue"
+      },
+      {
+        "amount_cents": 2649,
+        "amount_display": "$26.49",
+        "bill_id": 2,
+        "due_date": "2026-10-13",
+        "estimated": false,
+        "name": "Spotify",
+        "state": "paid"
+      },
+      {
+        "amount_cents": 8999,
+        "amount_display": "$89.99",
+        "bill_id": 3,
+        "due_date": "2026-10-14",
+        "estimated": false,
+        "name": "Internet",
+        "state": "due"
+      },
+      {
+        "amount_cents": 8000,
+        "amount_display": "~$80.00",
+        "bill_id": 4,
+        "due_date": "2026-10-20",
+        "estimated": true,
+        "name": "Water",
+        "state": "upcoming"
+      }
+    ],
+    "stale": false,
+    "today": [
+      {
+        "amount_cents": 21200,
+        "amount_display": "$212.00",
+        "bill_id": 1,
+        "due_date": "2026-10-12",
+        "estimated": false,
+        "name": "Power",
+        "state": "overdue"
+      },
+      {
+        "amount_cents": 2649,
+        "amount_display": "$26.49",
+        "bill_id": 2,
+        "due_date": "2026-10-13",
+        "estimated": false,
+        "name": "Spotify",
+        "state": "paid"
+      },
+      {
+        "amount_cents": 8999,
+        "amount_display": "$89.99",
+        "bill_id": 3,
+        "due_date": "2026-10-14",
+        "estimated": false,
+        "name": "Internet",
+        "state": "due"
+      }
+    ]
+  },
   "spending_allowance": {
     "amount_cents": -11500,
     "amount_display": "-$115.00",

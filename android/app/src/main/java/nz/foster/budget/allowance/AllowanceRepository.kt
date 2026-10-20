@@ -8,8 +8,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerializationException
 import nz.foster.budget.api.ApiResponse
+import nz.foster.budget.api.BillsView
 import nz.foster.budget.api.SpendingAllowance
 import nz.foster.budget.api.SpendingAllowanceApi
+import nz.foster.budget.api.SpendingAllowanceResponse
+import nz.foster.budget.api.parseAllowanceResponse
 import nz.foster.budget.api.parseSpendingAllowance
 import nz.foster.budget.auth.AccessTokenResult
 import nz.foster.budget.auth.AuthManager
@@ -26,6 +29,7 @@ data class AllowanceSnapshot(
     val allowance: SpendingAllowance?,
     val lastSuccessAtMillis: Long?,
     val lastFetch: LastFetch?,
+    val bills: BillsView? = null,
 )
 
 sealed interface FetchOutcome {
@@ -96,16 +100,18 @@ class AllowanceRepository(
 
     private fun readSnapshot(): AllowanceSnapshot {
         val cached = cache.read()
+        val response = cached?.let { readCached(it.json) }
         return AllowanceSnapshot(
             auth = auth.state.value,
-            allowance = cached?.let { readCached(it.json) },
+            allowance = response?.spendingAllowance,
             lastSuccessAtMillis = cached?.fetchedAtMillis,
             lastFetch = cache.lastFetch(),
+            bills = response?.bills,
         )
     }
 
-    private fun readCached(json: String): SpendingAllowance? = try {
-        parseSpendingAllowance(json)
+    private fun readCached(json: String): SpendingAllowanceResponse? = try {
+        parseAllowanceResponse(json)
     } catch (_: SerializationException) {
         null
     }

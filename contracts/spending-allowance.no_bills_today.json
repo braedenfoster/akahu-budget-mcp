@@ -1,0 +1,46 @@
+{
+  "bills": {
+    "data_as_of": "2026-10-15T08:00:00.000Z",
+    "due_total_cents": 8000,
+    "due_total_display": "$80.00",
+    "next_upcoming": {
+      "amount_cents": 8000,
+      "amount_display": "~$80.00",
+      "bill_id": 1,
+      "due_date": "2026-10-20",
+      "estimated": true,
+      "name": "Water",
+      "state": "upcoming"
+    },
+    "occurrences": [
+      {
+        "amount_cents": 8000,
+        "amount_display": "~$80.00",
+        "bill_id": 1,
+        "due_date": "2026-10-20",
+        "estimated": true,
+        "name": "Water",
+        "state": "upcoming"
+      }
+    ],
+    "stale": false,
+    "today": []
+  },
+  "spending_allowance": {
+    "amount_cents": 36500,
+    "amount_display": "$365.00",
+    "committed_overspend_cents": 0,
+    "data_as_of": "2026-10-15T08:00:00.000Z",
+    "days_left": 17,
+    "flexible_allocated_cents": 50000,
+    "flexible_remaining_cents": 38000,
+    "per_week_cents": 15029,
+    "per_week_display": "$150.29",
+    "period": "2026-10",
+    "period_days": 31,
+    "stale": false,
+    "status": "ok",
+    "uncategorized_count": 1,
+    "uncategorized_spent_cents": 1500
+  }
+}

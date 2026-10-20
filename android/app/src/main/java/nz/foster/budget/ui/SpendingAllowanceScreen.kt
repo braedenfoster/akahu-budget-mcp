@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -25,6 +26,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlin.math.cos
 import kotlin.math.sin
@@ -60,6 +64,7 @@ fun SpendingAllowanceScreen(
         } else {
             Headline(allowance)
             Breakdown(allowance)
+            model.bills?.let { BillsCard(it) }
             Text(
                 allowance.dataAsOf?.let { stringResource(R.string.data_as_of, it) }
                     ?: stringResource(R.string.data_as_of_unknown),
@@ -168,5 +173,45 @@ private fun BreakdownRow(label: String, value: String?, note: String? = null) {
             note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
         }
         value?.let { Text(it) }
+    }
+}
+
+private val WEEKDAY_WIDTH = 40.dp
+
+@Composable
+private fun BillsCard(card: BillsCardModel) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(stringResource(R.string.bills_this_week), style = MaterialTheme.typography.titleMedium)
+                Text(
+                    card.total,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = toneColor(card.totalTone, normal = Color.Unspecified),
+                )
+            }
+            if (card.rows.isEmpty()) {
+                Text(stringResource(R.string.no_bills_this_week))
+            } else {
+                HorizontalDivider()
+                card.rows.forEach { OccurrenceRowView(it) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OccurrenceRowView(row: OccurrenceRow) {
+    val color = toneColor(row.tone, normal = Color.Unspecified)
+    val paid = stringResource(R.string.bill_paid)
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(row.weekday, Modifier.width(WEEKDAY_WIDTH), color = color)
+        Text(row.name, Modifier.weight(1f), color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (row.paid) Text(stringResource(R.string.bill_paid_tick), Modifier.semantics { contentDescription = paid }, color = color)
+        Text(row.amount, color = color)
     }
 }

@@ -2,6 +2,7 @@ package nz.foster.budget.allowance
 
 import java.math.BigDecimal
 import java.text.NumberFormat
+import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Currency
@@ -21,12 +22,18 @@ private val monthFormat = DateTimeFormatter.ofPattern("MMMM yyyy", HOUSEHOLD_LOC
 
 fun formatMonth(period: YearMonth): String = monthFormat.format(period)
 
+private val weekdayFormat = DateTimeFormatter.ofPattern("EEE", HOUSEHOLD_LOCALE)
+
+fun formatWeekday(date: LocalDate): String = weekdayFormat.format(date)
+
 enum class AmountTone { Normal, Over, Stale }
 
-/** An overspend keeps the warning colour when stale; the as-of date still marks the staleness. */
+/** A warning keeps its colour when stale; the as-of date still marks the staleness. */
+fun amountTone(warning: Boolean, stale: Boolean): AmountTone = when {
+    warning -> AmountTone.Over
+    stale -> AmountTone.Stale
+    else -> AmountTone.Normal
+}
+
 val SpendingAllowance.amountTone: AmountTone
-    get() = when {
-        status == AllowanceStatus.Over -> AmountTone.Over
-        stale -> AmountTone.Stale
-        else -> AmountTone.Normal
-    }
+    get() = amountTone(warning = status == AllowanceStatus.Over, stale = stale)

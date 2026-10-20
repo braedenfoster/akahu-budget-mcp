@@ -1,13 +1,19 @@
 package nz.foster.budget.api
 
 import java.time.Instant
+import java.time.LocalDate
 import java.time.YearMonth
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -18,9 +24,65 @@ class ContractTest {
     fun `every contract file parses`() {
         val files = contractsDir.listFiles { f -> f.name.startsWith("spending-allowance.") && f.name.endsWith(".json") }
             .orEmpty()
-        assertEquals(setOf("ok", "over", "no_budget", "stale"), files.map { it.name.split('.')[1] }.toSet())
+        assertEquals(
+            setOf("ok", "over", "no_budget", "stale", "no_bills_today"),
+            files.map { it.name.split('.')[1] }.toSet(),
+        )
 
-        files.forEach { parseSpendingAllowance(it.readText()) }
+        files.forEach { assertNotNull(it.name, parseAllowanceResponse(it.readText()).bills) }
+    }
+
+    @Test
+    fun `ok parses every Bills field the app reads`() {
+        val bills = contractBills("ok")
+
+        assertEquals(
+            listOf(
+                BillOccurrence("Power", LocalDate.of(2026, 10, 12), BillOccurrenceState.Overdue, "$212.00"),
+                BillOccurrence("Spotify", LocalDate.of(2026, 10, 13), BillOccurrenceState.Paid, "$26.49"),
+                BillOccurrence("Internet", LocalDate.of(2026, 10, 14), BillOccurrenceState.Due, "$89.99"),
+                BillOccurrence("Water", LocalDate.of(2026, 10, 20), BillOccurrenceState.Upcoming, "~$80.00"),
+            ),
+            bills.occurrences,
+        )
+        assertEquals("$381.99", bills.dueTotalDisplay)
+        assertFalse(bills.stale)
+    }
+
+    @Test
+    fun `the Bills view is present without a Budget and flags staleness`() {
+        assertEquals(4, contractBills("no_budget").occurrences.size)
+        assertTrue(contractBills("stale").stale)
+    }
+
+    @Test
+    fun `a response without bills still parses`() {
+        val root = Json.parseToJsonElement(contractJson("ok")).jsonObject
+        val response = parseAllowanceResponse(JsonObject(root - "bills").toString())
+
+        assertNull(response.bills)
+        assertEquals(36500L, response.spendingAllowance.amountCents)
+    }
+
+    @Test
+    fun `an unreadable Bills block leaves no Bills view but keeps the Spending allowance`() {
+        val root = Json.parseToJsonElement(contractJson("ok")).jsonObject
+        val bills = root.getValue("bills").jsonObject
+        val row = bills.getValue("occurrences").jsonArray.first().jsonObject
+        val withRow = { r: JsonObject -> JsonObject(bills + ("occurrences" to JsonArray(listOf(r)))) }
+        val unreadable = listOf("occurrences", "due_total_display", "stale").associateWith { JsonObject(bills - it) } +
+            listOf("name", "due_date", "state", "amount_display").associateWith { withRow(JsonObject(row - it)) } +
+            mapOf(
+                "unknown state" to withRow(JsonObject(row + ("state" to JsonPrimitive("skipped")))),
+                "malformed due_date" to withRow(JsonObject(row + ("due_date" to JsonPrimitive("12 Oct")))),
+                "null" to JsonNull,
+            )
+
+        for ((case, block) in unreadable) {
+            val response = parseAllowanceResponse(JsonObject(root + ("bills" to block)).toString())
+            assertNull(case, response.bills)
+            assertEquals(case, 36500L, response.spendingAllowance.amountCents)
+        }
     }
 
     @Test

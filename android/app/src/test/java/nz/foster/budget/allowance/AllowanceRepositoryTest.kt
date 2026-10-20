@@ -4,6 +4,8 @@ import java.io.IOException
 import kotlinx.coroutines.test.runTest
 import nz.foster.budget.api.ApiResponse
 import nz.foster.budget.api.SpendingAllowanceApi
+import nz.foster.budget.api.contractBills
+import nz.foster.budget.api.contractJson
 import nz.foster.budget.auth.AuthManager
 import nz.foster.budget.auth.AuthState
 import nz.foster.budget.auth.InMemoryTokenStore
@@ -177,6 +179,26 @@ class AllowanceRepositoryTest {
         assertEquals(36500L, snapshot.allowance?.amountCents)
         assertEquals(42L, snapshot.lastSuccessAtMillis)
         assertEquals(LastFetch.Succeeded(42L), snapshot.lastFetch)
+    }
+
+    @Test
+    fun `the Bills view is cached with the Spending allowance`() = runTest {
+        repository(ScriptedApi(ApiResponse(200, contractJson("ok")))).refresh()
+
+        val snapshot = repository(ScriptedApi()).snapshot.value
+
+        assertEquals(contractBills("ok"), snapshot.bills)
+        assertEquals(36500L, snapshot.allowance?.amountCents)
+    }
+
+    @Test
+    fun `a response without bills keeps the Spending allowance and has no Bills view`() = runTest {
+        val repo = repository(ScriptedApi(ApiResponse(200, OK_BODY)))
+
+        repo.refresh()
+
+        assertEquals(36500L, repo.snapshot.value.allowance?.amountCents)
+        assertNull(repo.snapshot.value.bills)
     }
 
     @Test

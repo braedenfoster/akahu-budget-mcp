@@ -1,6 +1,7 @@
 # Contracts
 
-Example responses from `GET /api/spending-allowance`, one per state: `ok`, `over`, `no_budget`, and `stale`.
+Example responses from `GET /api/spending-allowance`, one per state: `ok`, `over`, `no_budget`, `stale`, and `no_bills_today`.
+Each response also has a `bills` block (the Bills view). In `no_bills_today`, no Bill occurrence is due today and `next_upcoming` is set.
 The server test `test/20-contract-fixtures.test.ts` generates each file from the real route, with a fixed clock and seeded data.
 The Android unit tests parse the same files.
 
