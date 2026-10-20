@@ -34,7 +34,10 @@ suspend fun updateAllWidgets(context: Context) {
 
 /** The background and tap target both widgets share. A tap opens the app. */
 @Composable
-internal fun WidgetFrame(content: @Composable ColumnScope.() -> Unit) {
+internal fun WidgetFrame(
+    verticalAlignment: Alignment.Vertical = Alignment.CenterVertically,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -43,7 +46,7 @@ internal fun WidgetFrame(content: @Composable ColumnScope.() -> Unit) {
             .cornerRadius(16.dp)
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .clickable(actionStartActivity<MainActivity>()),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = verticalAlignment,
         content = content,
     )
 }

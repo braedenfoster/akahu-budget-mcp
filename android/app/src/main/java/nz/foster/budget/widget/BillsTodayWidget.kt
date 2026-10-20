@@ -17,6 +17,7 @@ import androidx.glance.layout.Alignment
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxWidth
+import androidx.glance.layout.padding
 import androidx.glance.layout.width
 import androidx.glance.semantics.contentDescription
 import androidx.glance.semantics.semantics
@@ -51,7 +52,9 @@ class BillsTodayWidgetReceiver : GlanceAppWidgetReceiver() {
 @Composable
 private fun BillsTodayContent(state: BillsTodayState) {
     val context = LocalContext.current
-    WidgetFrame {
+    // Rows start under the title; centring would float them in a tall widget.
+    WidgetFrame(verticalAlignment = Alignment.Top) {
+        Title()
         when (state) {
             BillsTodayState.SignedOut -> Headline(context.getString(R.string.sign_in))
             is BillsTodayState.NothingCached -> {
@@ -77,6 +80,16 @@ private fun BillsTodayContent(state: BillsTodayState) {
             }
         }
     }
+}
+
+@Composable
+private fun Title() {
+    Text(
+        LocalContext.current.getString(R.string.bills_widget_label),
+        modifier = GlanceModifier.padding(bottom = 4.dp),
+        maxLines = 1,
+        style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = GlanceTheme.colors.onSurfaceVariant),
+    )
 }
 
 @Composable
