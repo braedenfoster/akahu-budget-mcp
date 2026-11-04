@@ -1,5 +1,5 @@
 import { and, eq, gte, lt } from "drizzle-orm";
-import { isSpendSql } from "../budget/engine.js";
+import { isPurchaseSql } from "../budget/engine.js";
 import type { AppContext } from "../context.js";
 import {
   declinedBillCandidates,
@@ -77,7 +77,7 @@ export function detectBillCandidates(ctx: AppContext, today: string): BillCandid
       and(
         lt(transactions.amountCents, 0),
         eq(transactions.pending, false),
-        isSpendSql,
+        isPurchaseSql,
         gte(transactions.date, addDays(today, -LOOKBACK_DAYS)),
       ),
     )

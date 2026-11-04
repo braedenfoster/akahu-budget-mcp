@@ -1,6 +1,6 @@
-import { and, eq, isNotNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull, or, sql } from "drizzle-orm";
 import type { AppContext } from "../context.js";
-import { budgetCategories, mappingRules, transactions, type CategoryKind } from "../db/schema.js";
+import { accounts, budgetCategories, mappingRules, transactions, type CategoryKind } from "../db/schema.js";
 import { buildMatcher, type MatchFields, type MatchRule } from "../matching/matcher.js";
 import { runIncomeClassification } from "../income/engine.js";
 import { pairInternalTransfers } from "../transfers/pairing.js";
@@ -140,10 +140,13 @@ export interface CategoryMove {
 /**
  * Re-derive the Budget Category for every non-overridden Transaction from its
  * stored merchant/group and return the ones that would change. Reads only, so a
- * Mapping Rule can be previewed before it is stored.
+ * Mapping Rule can be previewed before it is stored. A paired leg on a Savings
+ * Account always takes the Account's Budget Category, even over an override
+ * (ADR-0012), so it reads stored pairs: run pairing first.
  */
 export function planRecategorization(ctx: AppContext, proposed?: ProposedMappingRule): CategoryMove[] {
   const resolver = buildResolver(ctx, proposed);
+  const savingsLeg = and(isNotNull(transactions.transferPairId), isNotNull(accounts.budgetCategoryId));
   const rows = ctx.db
     .select({
       akahuId: transactions.akahuId,
@@ -151,20 +154,26 @@ export function planRecategorization(ctx: AppContext, proposed?: ProposedMapping
       description: transactions.description,
       group: transactions.akahuCategoryGroup,
       type: transactions.type,
+      pairId: transactions.transferPairId,
+      savingsCategoryId: accounts.budgetCategoryId,
       current: transactions.budgetCategoryId,
     })
     .from(transactions)
-    .where(eq(transactions.categoryOverride, false))
+    .innerJoin(accounts, eq(transactions.accountId, accounts.akahuId))
+    .where(or(eq(transactions.categoryOverride, false), savingsLeg))
     .all();
 
   const moves: CategoryMove[] = [];
   for (const row of rows) {
-    const resolved = resolver.resolve({
-      merchant: row.merchant,
-      description: row.description,
-      group: row.group,
-      type: row.type,
-    });
+    const resolved =
+      row.pairId !== null && row.savingsCategoryId !== null
+        ? row.savingsCategoryId
+        : resolver.resolve({
+            merchant: row.merchant,
+            description: row.description,
+            group: row.group,
+            type: row.type,
+          });
     if (row.current !== resolved)
       moves.push({ akahuId: row.akahuId, fromId: row.current, toId: resolved });
   }
@@ -195,12 +204,13 @@ export function recategorize(ctx: AppContext): number {
  * then classify Income into Streams (ADR-0009). Income classification runs here
  * so that sync -> categorize -> classify stays a single automatic pass and
  * `transactions.is_income` is derived, never guessed by the sync heuristic.
- * Pairing must run before Income classification: a paired credit is never Income.
+ * Pairing runs first: a savings leg's Budget Category and a credit's Income
+ * status both depend on its pair.
  */
 export function runCategorization(ctx: AppContext): void {
   seedRulesFromTransactions(ctx);
-  recategorize(ctx);
   pairInternalTransfers(ctx);
+  recategorize(ctx);
   runIncomeClassification(ctx);
 }
 
@@ -214,8 +224,13 @@ export function transactionCountForCategory(ctx: AppContext, categoryId: number)
   return row?.n ?? 0;
 }
 
-/** Reassign every Transaction and Mapping Rule from one category to another. */
+/** Reassign every Transaction, Mapping Rule and Savings Account from one category to another. */
 export function reassignCategory(ctx: AppContext, fromId: number, toId: number): void {
+  ctx.db
+    .update(accounts)
+    .set({ budgetCategoryId: toId })
+    .where(eq(accounts.budgetCategoryId, fromId))
+    .run();
   ctx.db
     .update(transactions)
     .set({ budgetCategoryId: toId })

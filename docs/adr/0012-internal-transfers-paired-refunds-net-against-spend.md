@@ -18,7 +18,7 @@ A Savings Account is an Account the Household links to one Budget Category. The 
 
 ## Consequences
 
-- Pairing rules: exactly opposite amounts, two different Household Accounts (any Member), dates within 3 days, at least one leg typed `TRANSFER` or `STANDING ORDER`. Each Transaction is in at most one pair; the closest date wins, then the lowest id.
+- Pairing rules: exactly opposite amounts, two different Household Accounts (any Member), dates within 3 days, at least one leg typed `TRANSFER` or `STANDING ORDER`. Each Transaction is in at most one pair. A pair with both legs transfer-typed wins first, so a savings withdrawal is not taken by a same-day card purchase of the same amount; then the closest date wins, then the lowest id.
 - Pairs and refund matches are re-derived from stored data on every categorization pass, so connecting another Account later fixes older Transactions without a re-fetch. A Member override (mark as, or forbid as, internal transfer) survives re-derivation.
 - Order of precedence: Member override > pairing > Income Rule > refund match > ADR-0009 fallback.
 - The spend sum excludes paired internal transfers, except the leg on a Savings Account. That leg always counts in the linked Budget Category, whatever category it was given, and in the Period of its own date. The other leg is excluded. A transfer between two Savings Accounts counts in both, so the net is zero when they share a Budget Category.

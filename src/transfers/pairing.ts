@@ -61,10 +61,15 @@ export function pairInternalTransfers(ctx: AppContext): number {
 interface Candidate {
   debit: Leg;
   credit: Leg;
+  transferLegs: number;
   days: number;
 }
 
-/** Every possible pair, closest date first, then lowest id, so assignment is stable. */
+/**
+ * Every possible pair in assignment order: two transfer-typed legs first, so a
+ * savings withdrawal is not taken by a same-day purchase of the same amount;
+ * then closest date, then lowest id, so assignment is stable.
+ */
 function candidates(legs: Leg[]): Candidate[] {
   const creditsByAmount = new Map<number, Leg[]>();
   for (const leg of legs) {
@@ -77,11 +82,18 @@ function candidates(legs: Leg[]): Candidate[] {
   for (const debit of legs) {
     if (debit.amountCents >= 0) continue;
     for (const credit of creditsByAmount.get(-debit.amountCents) ?? []) {
-      if (canPair(debit, credit)) found.push({ debit, credit, days: daysBetween(debit.date, credit.date) });
+      if (!canPair(debit, credit)) continue;
+      found.push({
+        debit,
+        credit,
+        transferLegs: Number(isTransferType(debit.type)) + Number(isTransferType(credit.type)),
+        days: daysBetween(debit.date, credit.date),
+      });
     }
   }
   return found.sort(
     (a, b) =>
+      b.transferLegs - a.transferLegs ||
       a.days - b.days ||
       a.debit.akahuId.localeCompare(b.debit.akahuId) ||
       a.credit.akahuId.localeCompare(b.credit.akahuId),

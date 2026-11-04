@@ -1,0 +1,1 @@
+ALTER TABLE `accounts` ADD `budget_category_id` integer REFERENCES budget_categories(id);

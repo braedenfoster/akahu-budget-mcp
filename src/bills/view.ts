@@ -1,5 +1,5 @@
 import { and, lt } from "drizzle-orm";
-import { isSpendSql } from "../budget/engine.js";
+import { isPurchaseSql } from "../budget/engine.js";
 import { dataFreshness, householdTimezone, type AppContext } from "../context.js";
 import { bills, transactions, type Bill } from "../db/schema.js";
 import { buildMatcher } from "../matching/matcher.js";
@@ -197,7 +197,7 @@ function matchDebits(ctx: AppContext, all: Bill[]): Matches {
       type: transactions.type,
     })
     .from(transactions)
-    .where(and(lt(transactions.amountCents, 0), isSpendSql))
+    .where(and(lt(transactions.amountCents, 0), isPurchaseSql))
     .all();
   const debits = rows.map((row) => ({ ...row, amountCents: -row.amountCents }));
   const pairs: { billId: number; key: string; debit: Debit; amountOff: number; daysOff: number }[] = [];

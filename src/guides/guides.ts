@@ -39,6 +39,7 @@ const GUIDES: Record<WorkflowFlow, WorkflowGuide> = {
       "Confirm the expected income with the Member, then call set_expected_income.",
       "If the Member names a Budget Category that list_categories does not show, ask the Member whether it is Committed or Flexible, then call manage_categories with action create, the name, and that kind.",
       "For each Budget Category the Member names, call set_allocation with the agreed amount (convert dollars to integer cents before calling).",
+      "Allocate to Savings the amount the Household plans to keep in savings this Period. Its spend is net money saved: transfers into the Savings Account minus transfers out. Call list_accounts. If no Account has a savings_category, ask the Member which Account holds savings, then call set_savings_account with that Account and the Savings Budget Category.",
       "Call get_budget again, before the Member confirms the allocations. Show the Committed and Flexible totals from allocated_by_kind (committed_cents, flexible_cents) and the Spending allowance from spending_allowance (amount_cents, per_week_cents), as returned. Do not add up Envelopes yourself.",
       "If the Member wants a different Spending allowance, change the Committed or Flexible allocations with set_allocation. Then repeat the previous step.",
       "Read household_headroom_cents from the same get_budget result. If it is negative, tell the Member they have allocated more than they expect to earn and offer to trim an Envelope; otherwise confirm the budget is set.",
@@ -51,6 +52,8 @@ const GUIDES: Record<WorkflowFlow, WorkflowGuide> = {
       "list_categories",
       "manage_categories",
       "list_income_streams",
+      "list_accounts",
+      "set_savings_account",
     ],
   },
   review_spending: {
@@ -60,6 +63,7 @@ const GUIDES: Record<WorkflowFlow, WorkflowGuide> = {
       "Walk the Member through where the money went this Period, clear anything Uncategorized, tidy up how income is classified into Income Streams, spot Envelopes that are overspent, and keep the Bills list current.",
     steps: [
       "Call get_budget for the Period and highlight any Envelope whose remaining_cents is negative (overspent).",
+      "For an Envelope linked to a Savings Account, spent_cents is net money saved this Period: deposits minus withdrawals. A negative remaining_cents there means more was saved than planned. A positive remaining_cents is the amount still to move into savings. Do not call categorize_transaction on transfers to or from savings; the server counts them from the Savings Account.",
       "Call list_uncategorized for the Period. For each item, propose a Budget Category based on its merchant/description.",
       "If the Member wants a Budget Category that does not exist yet, ask the Member whether it is Committed or Flexible, then call manage_categories with action create, the name, and that kind.",
       "When the Member agrees on a one-off, call categorize_transaction. When it should stick for the future, call set_category_rule (with backfill) instead.",

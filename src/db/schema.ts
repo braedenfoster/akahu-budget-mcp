@@ -107,6 +107,10 @@ export const accounts = sqliteTable("accounts", {
   formattedAccount: text("formatted_account"),
   balanceCents: integer("balance_cents").notNull(),
   currency: text("currency").notNull(),
+  // Set by the Household, never by sync: makes this a Savings Account (ADR-0012).
+  budgetCategoryId: integer("budget_category_id").references(
+    (): typeof budgetCategories.id => budgetCategories.id,
+  ),
   // Full raw Akahu account payload as JSON, for re-derivation/debugging.
   raw: text("raw").notNull(),
   updatedAt: text("updated_at").notNull(),

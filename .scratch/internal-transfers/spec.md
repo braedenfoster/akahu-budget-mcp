@@ -89,7 +89,7 @@ Pairing runs before Income Rules. Money moving between the Household's own Accou
 - Candidates: a debit and a credit with exactly opposite amounts, on two different Accounts in the Household (any Member).
 - Dates within 3 days of each other. All pairs in the local DB are on the same day, so 3 days leaves a margin for bank posting delays.
 - At least one leg must have Akahu type `TRANSFER` or `STANDING ORDER`. Akahu types an automatic payment to savings as `STANDING ORDER` on the paying Account and `CREDIT` on the receiving Account.
-- Each Transaction belongs to at most one pair. Assign by the closest date first, then the lowest id.
+- Each Transaction belongs to at most one pair. Assign pairs with both legs transfer-typed first, then by the closest date, then the lowest id.
 - Pairs are derived from stored data on every pass, like income classification. Store them for reads. Do not treat them as a source of truth.
 
 ### Refund matching

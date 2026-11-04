@@ -1,6 +1,6 @@
 import type { AnyTool } from "./types.js";
 import { getSettingsTool, setSettingTool } from "./settings.js";
-import { listAccountsTool } from "./accounts.js";
+import { listAccountsTool, setSavingsAccountTool } from "./accounts.js";
 import {
   listTransactionsTool,
   refreshTool,
@@ -49,6 +49,7 @@ export const allTools: AnyTool[] = [
   getSettingsTool,
   setSettingTool,
   listAccountsTool,
+  setSavingsAccountTool,
   listTransactionsTool,
   searchTransactionsTool,
   refreshTool,
