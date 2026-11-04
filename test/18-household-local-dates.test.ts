@@ -12,6 +12,7 @@ import {
   putSetting,
   SETTING_BUDGET_MONTH_START_DAY,
   SETTING_HOUSEHOLD_TIMEZONE,
+  type AppContext,
 } from "../src/context.js";
 import { FakeAkahuClient, sampleAccount, sampleTransaction } from "./fixtures/akahu.js";
 import { migrationsBefore, seedConnection, testContext } from "./helpers.js";
@@ -58,15 +59,8 @@ describe("Household-local dates (Seam 1)", () => {
     migrate(db, { migrationsFolder: partial });
     fs.rmSync(partial, { recursive: true });
     const ctx = makeContext(db, () => new Date("2026-10-17T08:00:00.000Z"));
-    const connectionId = seedConnection(ctx);
-    const midnight = { ...sampleTransaction({ id: "t1", amount: -20 }), date: "2026-10-15T11:00:00.000Z" };
     // 14:19 on 15 Oct in Auckland.
-    const daytime = { ...sampleTransaction({ id: "t2", amount: -5 }), date: "2026-10-15T01:19:00.000Z" };
-    await runSync(ctx, [
-      { connectionId, client: new FakeAkahuClient([sampleAccount()], [midnight, daytime]) },
-    ]);
-    // The date the sync stored before this migration: Akahu's UTC date, cut.
-    db.$client.prepare("UPDATE transactions SET date = '2026-10-15'").run();
+    seedBeforeLocalDates(ctx, { t1: "2026-10-15T11:00:00.000Z", t2: "2026-10-15T01:19:00.000Z" });
 
     runMigrations(db);
 
@@ -83,9 +77,7 @@ describe("Household-local dates (Seam 1)", () => {
     migrate(db, { migrationsFolder: partial });
     fs.rmSync(partial, { recursive: true });
     const ctx = makeContext(db, () => new Date("2026-10-17T08:00:00.000Z"));
-    const connectionId = seedConnection(ctx);
-    const txn = { ...sampleTransaction({ id: "t1", amount: -20 }), date: "2026-10-15T11:00:00.000Z" };
-    await runSync(ctx, [{ connectionId, client: new FakeAkahuClient([sampleAccount()], [txn]) }]);
+    seedBeforeLocalDates(ctx, { t1: "2026-10-15T11:00:00.000Z" });
     putSetting(ctx, SETTING_HOUSEHOLD_TIMEZONE, "Not/AZone");
 
     runMigrations(db);
@@ -94,3 +86,25 @@ describe("Household-local dates (Seam 1)", () => {
     expect(out.transactions.map((t) => t.date)).toEqual(["2026-10-16"]);
   });
 });
+
+/**
+ * Seed rows into a schema migrated only up to 0008 with raw SQL. The sync
+ * writes today's columns, which an old schema does not have. Before 0009 the
+ * stored date was Akahu's UTC instant, cut to a date.
+ */
+function seedBeforeLocalDates(ctx: AppContext, akahuDates: Record<string, string>): void {
+  const connectionId = seedConnection(ctx);
+  const client = ctx.db.$client;
+  client
+    .prepare(
+      "INSERT INTO accounts (akahu_id, connection_id, name, type, balance_cents, currency, raw, updated_at) VALUES ('acc_everyday', ?, 'Everyday', 'CHECKING', 0, 'NZD', '{}', '2026-10-17')",
+    )
+    .run(connectionId);
+  for (const [id, instant] of Object.entries(akahuDates)) {
+    client
+      .prepare(
+        "INSERT INTO transactions (akahu_id, account_id, date, amount_cents, currency, description, raw, updated_at) VALUES (?, 'acc_everyday', ?, -500, 'NZD', 'Purchase', ?, '2026-10-17')",
+      )
+      .run(id, instant.slice(0, 10), JSON.stringify({ date: instant }));
+  }
+}

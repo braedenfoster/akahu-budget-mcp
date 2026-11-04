@@ -18,10 +18,11 @@ export function homeCurrency(ctx: AppContext): string {
  * Shared aggregation fragments (single source of truth for the spend/income
  * definitions across the budget, reports and Bills engines; ADR-0008 endorses
  * hand-written SQL for aggregations). A spend row is neither income nor an
- * internal transfer. `nonIncomeNet` is the signed net of spend rows and
+ * Internal transfer (an Akahu TRANSFER row or one leg of a pair, ADR-0012).
+ * `nonIncomeNet` is the signed net of spend rows and
  * `spendCount` counts them; `incomeNet` is the sum of income-tagged credits.
  */
-export const isSpendSql = sql`${transactions.isIncome} = 0 and (${transactions.type} is null or ${transactions.type} != 'TRANSFER')`;
+export const isSpendSql = sql`${transactions.isIncome} = 0 and ${transactions.transferPairId} is null and (${transactions.type} is null or ${transactions.type} != 'TRANSFER')`;
 export const nonIncomeNetSql = sql<number>`coalesce(sum(case when ${isSpendSql} then ${transactions.amountCents} else 0 end), 0)`;
 export const spendCountSql = sql<number>`coalesce(sum(case when ${isSpendSql} then 1 else 0 end), 0)`;
 export const incomeNetSql = sql<number>`coalesce(sum(case when ${transactions.isIncome} = 1 then ${transactions.amountCents} else 0 end), 0)`;

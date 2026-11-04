@@ -3,6 +3,7 @@ import type { AppContext } from "../context.js";
 import { budgetCategories, mappingRules, transactions, type CategoryKind } from "../db/schema.js";
 import { buildMatcher, type MatchFields, type MatchRule } from "../matching/matcher.js";
 import { runIncomeClassification } from "../income/engine.js";
+import { pairInternalTransfers } from "../transfers/pairing.js";
 
 export const UNCATEGORIZED_NAME = "Uncategorized";
 
@@ -194,10 +195,12 @@ export function recategorize(ctx: AppContext): number {
  * then classify Income into Streams (ADR-0009). Income classification runs here
  * so that sync -> categorize -> classify stays a single automatic pass and
  * `transactions.is_income` is derived, never guessed by the sync heuristic.
+ * Pairing must run before Income classification: a paired credit is never Income.
  */
 export function runCategorization(ctx: AppContext): void {
   seedRulesFromTransactions(ctx);
   recategorize(ctx);
+  pairInternalTransfers(ctx);
   runIncomeClassification(ctx);
 }
 

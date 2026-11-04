@@ -178,6 +178,9 @@ export const transactions = sqliteTable("transactions", {
   categoryOverride: integer("category_override", { mode: "boolean" })
     .notNull()
     .default(false),
+  // The other leg of an Internal transfer (ADR-0012). Re-derived on every
+  // categorization pass from stored data; never a source of truth.
+  transferPairId: text("transfer_pair_id"),
   raw: text("raw").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

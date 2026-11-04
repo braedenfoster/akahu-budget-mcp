@@ -111,6 +111,7 @@ function buildIncomeMatcher(ctx: AppContext): ReturnType<typeof buildMatcher> {
  * Re-derive the Income Stream for every non-overridden positive Transaction from
  * its stored fields (ADR-0009), so refining Income Rules reclassifies history
  * without re-fetching from Akahu. For each positive credit:
+ *   0. one leg of an Internal transfer pair -> not Income (ADR-0012);
  *   1. an Income Rule match -> that named Stream;
  *   2. else a positive non-TRANSFER credit -> Unclassified income;
  *   3. else (a positive TRANSFER with no rule) -> not Income.
@@ -129,6 +130,7 @@ export function reclassifyIncome(ctx: AppContext): number {
       description: transactions.description,
       group: transactions.akahuCategoryGroup,
       type: transactions.type,
+      pairId: transactions.transferPairId,
       current: transactions.incomeStreamId,
     })
     .from(transactions)
@@ -145,7 +147,8 @@ export function reclassifyIncome(ctx: AppContext): number {
         type: row.type,
       });
       let resolved: number | null;
-      if (matched !== undefined) resolved = matched;
+      if (row.pairId !== null) resolved = null;
+      else if (matched !== undefined) resolved = matched;
       else if (row.type !== "TRANSFER") resolved = unclassifiedId;
       else resolved = null;
       if (row.current !== resolved) {
