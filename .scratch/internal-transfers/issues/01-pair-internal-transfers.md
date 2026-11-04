@@ -8,11 +8,12 @@
 
 Spec: `.scratch/internal-transfers/spec.md` (Classification order, Pairing rules, Spend formula)
 
-- [ ] The categorization pass pairs a debit and a credit with exactly opposite amounts, on two different Household Accounts (any Member), within 3 days, with at least one leg typed `TRANSFER`
+- [ ] The categorization pass pairs a debit and a credit with exactly opposite amounts, on two different Household Accounts (any Member), within 3 days, with at least one leg typed `TRANSFER` or `STANDING ORDER`
 - [ ] Each Transaction is in at most one pair; the closest date wins, then the lowest id
 - [ ] Pairing runs before Income Rules; a paired credit is never Income, even when an Income Rule matches it
 - [ ] The spend sum excludes paired Transactions, in addition to the existing `TRANSFER` exclusion
 - [ ] Pairs are re-derived from stored data on every pass; connecting a second Account later pairs older Transactions
-- [ ] A salary credit equal to an unrelated purchase, with no `TRANSFER` leg, is not paired
+- [ ] An automatic payment (`STANDING ORDER` out, `CREDIT` in) between two Household Accounts is paired
+- [ ] A salary credit equal to an unrelated purchase, with no `TRANSFER` or `STANDING ORDER` leg, is not paired
 - [ ] An unpaired credit falls back exactly as before
 - [ ] Seam 1 tests drive these cases through sync, categorization, and `get_budget`

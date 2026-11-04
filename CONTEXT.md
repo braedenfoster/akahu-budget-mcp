@@ -45,8 +45,12 @@ Data in sqlite routing a merchant, description, Akahu group, or Akahu `type` to 
 _Avoid_: Classifier, rule (bare)
 
 **Internal transfer**:
-Money moving between two of the Household's own Accounts (e.g. a card repayment, a move to savings), recognised by pairing the debit on one Account with the matching credit on the other. Neither Income nor spend.
+Money moving between two of the Household's own Accounts (e.g. a card repayment, a move to savings), recognised by pairing the debit on one Account with the matching credit on the other. Never Income. Not spend, except the leg on a Savings Account.
 _Avoid_: Transfer (bare — Akahu's `TRANSFER` type is a different, narrower thing), movement, repayment
+
+**Savings Account**:
+An Account the Household has linked to one Budget Category (e.g. SAVINGS → Savings). Internal transfers into it count as spend in that Budget Category, and transfers out of it reduce that spend, so the Envelope shows net money saved.
+_Avoid_: Savings goal, savings pot, Akahu `SAVINGS` account type (a bank label, not a Household decision)
 
 **Refund**:
 A credit that reverses an earlier purchase. Not Income; it belongs to the purchase's Budget Category and reduces what was spent there.
